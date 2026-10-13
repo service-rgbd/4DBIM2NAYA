@@ -1,3 +1,5 @@
+/* eslint-disable */
+/* oxlint-disable */
 "use strict";
 var WebIFC = (() => {
   var __defProp = Object.defineProperty;

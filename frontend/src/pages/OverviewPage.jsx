@@ -72,7 +72,7 @@ export default function OverviewPage() {
         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm" data-testid="s-curve">
           <div className="mb-2 font-heading text-sm font-semibold">Courbe en S — avancement cumulé prévu vs réel</div>
           <div className="h-64">
-            <ResponsiveContainer>
+            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <LineChart data={d.s_curve}>
                 <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
                 <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 10 }} />

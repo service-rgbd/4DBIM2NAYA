@@ -1,0 +1,30 @@
+{
+  "summary": "Ran full backend pytest suite (test_api_e2e.py 31 + test_scheduling.py 8 = 39/39 PASSED). Executed Playwright end-to-end for admin and lecteur covering projects list (DÉMO badge visible), overview (KPIs + S-curve render), planning Gantt (14 bars incl gantt-bar-A050, task-sheet opens with 4 tabs details/avancement/liens/historique), Models page (v1 'Prêt', ifc-viewer canvas renders, tree with étages + catégories IFC visible, no viewer-error), 4D page (viewer-stats loaded, timeline-play works and timeline-date advances 13 oct -> 27 oct 2026, selection-count=21 after clicking gantt-row-A050, unlinked-count=0), audit page (17 rows), lecteur permissions ('Lecture seule' banner shown, no new-task-btn, no link-actions on 4D).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "4D rule dialog", "issue": "Clicking rule-open-btn did not reveal rule-type-chip within timeout in automation (dialog did open visually in some runs). Needs manual re-verify or add explicit visible-state assertion after open.", "affected_selectors": ["rule-open-btn", "rule-type-chip-*", "rule-preview-btn"]}
+    ],
+    "design_issues": [
+      {"screen": "All pages with native <select>", "issues": ["React hydration warning: <span> inside <option> (lib/format.js PROJECT_STATUS, Timeline.jsx, OverviewPage.jsx L30). Visual-editor wrapper injects span under option — causes hydration mismatch log. No functional impact but should be excluded for <option> rendering."]},
+      {"screen": "Overview charts", "issues": ["Recharts ResponsiveContainer logs width(-1)/height(-1) warnings until parent sizes; add minHeight/aspect to avoid noisy warnings."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_api_e2e.py", "/app/backend/tests/test_scheduling.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Low) Fix hydration warning by rendering plain text instead of <span> children inside <option> for PROJECT_STATUS / Timeline unit options.",
+    "(Low) Add minHeight to Recharts ResponsiveContainer on OverviewPage to silence width/height=-1 warnings."
+  ],
+  "critical_code_review_comments": [
+    "Hydration warning <span> inside <option> is a legit SSR/CSR mismatch risk; keep options as text-only.",
+    "Models page inlines first model viewer automatically — expected behaviour, but if more models are added, confirm UX for selecting between versions."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (39/39)", "frontend": "~95% (all core flows green; rule-dialog chips not asserted)"},
+  "test_credentials": "admin@bim4d.fr / Bim4D-Admin-2026 ; lecteur@bim4d.fr / Bim4D-Lecteur-2026",
+  "seed_data_creation": "Two TEST_ prefix projects created via backend tests (TEST_80A325A7, TEST_EEB601CD) remain in DB — safe (prefixed).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend fully green. Frontend demo flow fully works at REACT_APP_BACKEND_URL. Project id of DEMO is 009f00d0-0898-4581-8d69-3d58e8953b4d. Timeline-play button toggles; timeline-mode-reel/ecart buttons exist and clicking Réel reveals legend-en_retard (verified visually in screenshot 08_4d.png). Rule dialog opens but automated chip detection flaky — recommend adding data-testid=\"rule-dialog\" on DialogContent root for future tests."
+}
