@@ -1,0 +1,147 @@
+{
+  "project_identity": {
+    "name": "BIM 4D Master",
+    "tagline": "Plateforme SaaS Professionnelle de Gestion de Chantier et Planning BIM 4D",
+    "context": "Professional BTP & Construction SaaS application dedicated to 4D BIM simulation, schedule synchronization, IFC model manipulation, and site tracking.",
+    "ui_language": "French (Français) - All labels, navigation, tooltips, dialogs, status badges, and sample data must be strictly in French."
+  },
+  "design_archetype": {
+    "style": "Tactical Precision & High-Contrast Professional SaaS",
+    "theme_mode": "Light Theme Dominant (Fond gris très clair, surfaces blanches impeccables, accents bleu profond/indigo, mode sombre localisé pour le canvas 3D).",
+    "vibe": "Sobriété haut de gamme, rigueur d'ingénierie, densité de données lisible, réactivité instantanée."
+  },
+  "colors": {
+    "background_page": "#F8FAFC",
+    "surface_card": "#FFFFFF",
+    "surface_sidebar": "#0F172A",
+    "surface_sidebar_foreground": "#F8FAFC",
+    "primary": "#1E3A8A",
+    "primary_hover": "#1E40AF",
+    "accent_indigo": "#2563EB",
+    "accent_indigo_hover": "#1D4ED8",
+    "text_main": "#0F172A",
+    "text_muted": "#475569",
+    "text_light": "#94A3B8",
+    "border_subtle": "#E2E8F0",
+    "border_strong": "#CBD5E1",
+    "status_colors": {
+      "completed": {
+        "bg": "#ECFDF5",
+        "border": "#A7F3D0",
+        "text": "#047857",
+        "hex_3d": "#10B981",
+        "label": "Terminé"
+      },
+      "in_progress": {
+        "bg": "#EFF6FF",
+        "border": "#BFDBFE",
+        "text": "#1D4ED8",
+        "hex_3d": "#3B82F6",
+        "label": "En cours"
+      },
+      "delayed": {
+        "bg": "#FEF2F2",
+        "border": "#FECACA",
+        "text": "#B91C1C",
+        "hex_3d": "#EF4444",
+        "label": "En retard"
+      },
+      "blocked": {
+        "bg": "#FFF7ED",
+        "border": "#FFEDD5",
+        "text": "#C2410C",
+        "hex_3d": "#F97316",
+        "label": "Bloqué"
+      },
+      "to_do": {
+        "bg": "#F8FAFC",
+        "border": "#E2E8F0",
+        "text": "#475569",
+        "hex_3d": "#94A3B8",
+        "label": "À réaliser / Non planifié"
+      },
+      "critical_path": {
+        "bg": "#FEF2F2",
+        "border": "#FCA5A5",
+        "text": "#991B1B",
+        "hex_3d": "#DC2626",
+        "label": "Chemin critique"
+      }
+    }
+  },
+  "typography": {
+    "heading_font": "Barlow, Outfit, system-ui, sans-serif",
+    "body_font": "Inter, DM Sans, -apple-system, sans-serif",
+    "mono_font": "JetBrains Mono, Fira Code, monospace",
+    "sizes": {
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight text-slate-900",
+      "h2": "text-xl sm:text-2xl font-semibold text-slate-900",
+      "h3": "text-lg font-semibold text-slate-900",
+      "subtitle": "text-sm text-slate-500 font-normal",
+      "body": "text-sm text-slate-700 leading-relaxed",
+      "table_header": "text-xs font-semibold uppercase tracking-wider text-slate-500",
+      "kpi_value": "text-3xl font-extrabold text-slate-900 font-mono"
+    }
+  },
+  "layout_and_navigation": {
+    "header": {
+      "height": "h-16",
+      "style": "bg-white/95 backdrop-blur-md border-b border-slate-200 px-6 flex items-center justify-between z-40 sticky top-0",
+      "elements": [
+        "Selecteur de projet actif avec badge 'DÉMO' visible sur 'Résidence Le St-Germain'",
+        "Barre de recherche globale (tâches, objets IFC, lots)",
+        "Compteur de notifications (alertes de retard 4D)",
+        "Profil utilisateur (Chef de Projet BTP - Admin)"
+      ]
+    },
+    "sidebar": {
+      "width": "w-64",
+      "style": "bg-slate-900 text-slate-100 flex flex-col justify-between border-r border-slate-800",
+      "navigation_items": [
+        {"label": "Tableau de Bord", "path": "/overview", "icon": "LayoutDashboard"},
+        {"label": "Modèles BIM (IFC)", "path": "/bim-models", "icon": "Box"},
+        {"label": "Espace BIM 4D", "path": "/bim-4d", "icon": "Clock", "badge": "Cœur 4D"},
+        {"label": "Planning & Gantt", "path": "/gantt", "icon": "Calendar"},
+        {"label": "Calendrier de Chantier", "path": "/calendar", "icon": "CalendarDays"},
+        {"label": "Historique & Audit", "path": "/audit", "icon": "History"}
+      ]
+    },
+    "4d_workspace_layout": {
+      "structure": "Split screen interactif et redimensionnable",
+      "left_panel": "Visionneuse 3D BIM (Canvas Three.js / Web-IFC) avec commandes d'orbite, coupe, isolation et surbrillance",
+      "right_panel": "Tableau des activités synchronisé + Diagramme de Gantt interactif avec liaisons FS/SS/FF/SF",
+      "bottom_control_bar": "Barre temporelle 4D fixe : bouton Lecture/Pause, curseur de date, sélecteur de vitesse (x1, x2, x5), pas (Jour / Semaine / Mois), boutons Début / Fin, et légende des couleurs d'état"
+    }
+  },
+  "component_guidelines": {
+    "cards": "Subtle 1px border border-slate-200 bg-white rounded-lg shadow-sm hover:shadow transition-shadow p-5",
+    "tables": "Tableaux denses de style ingénierie BTP: en-têtes fixes slate-100, lignes alternées discrètes, sélection surbrillance bleue, cellules compactes (py-2 px-3), typographie monospace pour dates et durées",
+    "buttons": "Style pro: boutons principaux bg-blue-700 hover:bg-blue-800 text-white shadow-sm rounded-md px-4 py-2 font-medium; boutons secondaires bg-slate-100 hover:bg-slate-200 text-slate-800",
+    "badges": "Pills d'état arrondis (rounded-full px-2.5 py-0.5 text-xs font-semibold) respectant scrupuleusement le code couleur des phases 4D",
+    "dialogs_and_drawers": "Panneaux de propriétés latéraux (Drawer) pour les objets IFC sélectionnés et fenêtres modales Shadcn pour le linking automatique par règles"
+  },
+  "key_features_and_views": {
+    "login": "Page de connexion sobre et sécurisée pré-remplie avec l'accès Démo Admin (admin@bim4d.fr / password).",
+    "projects_list": "Liste des chantiers avec filtres par statut, métriques globales (BIM disponible, progression, lot principal), étiquette 'DÉMO' proéminente.",
+    "project_overview": "KPIs d'avancement (Prévu vs Réel), Courbe en S interactive, Jalons critiques, Résumé des alertes de retard.",
+    "bim_models": "Importation de fichiers IFC, arbre spatial (Étage > Espace > Catégorie > Objet), inspecteur de propriétés IFC, masquage par catégorie, plans de coupe.",
+    "bim_4d_workspace": "Module principal : simulation temporelle 4D, synchronisation 3D/Gantt en temps réel, mode comparaison Prévu vs Réel (split-screen 3D), liaison manuelle et automatique d'objets IFC aux tâches du planning.",
+    "gantt_activities": "Gantt professionnel avec dépendances (Fin à Début, Début à Début, Fin à Fin, Début à Fin + décalage en jours), affichage du chemin critique, zoom temporel (Jour/Semaine/Mois), redimensionnement dynamique.",
+    "calendar": "Gestion du calendrier de chantier (jours ouvrés, fermetures, vacances BTP, météo).",
+    "audit_history": "Historique détaillé des modifications (liaisons 4D créées, mises à jour de planning, imports de maquettes)."
+  },
+  "image_urls": {
+    "blueprint_architecture": "https://images.unsplash.com/photo-1721244654394-36a7bc2da288?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "construction_site_crane": "https://images.unsplash.com/photo-1674181899912-b8b0633d6458?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "engineers_discussion": "https://images.unsplash.com/photo-1774600166834-175d06febcd4?crop=entropy&cs=srgb&fm=jpg&q=85",
+    "architect_on_site": "https://images.unsplash.com/photo-1772442198689-af331f8f9617?crop=entropy&cs=srgb&fm=jpg&q=85"
+  },
+  "UNIVERSAL GUIDELINES FOR MAIN AGENT": [
+    "Strictly maintain French language for all text, UI labels, dates (e.g. 14 Mai 2026), buttons, error messages, and tooltips.",
+    "Always include 'data-testid' attributes on all interactive elements (buttons, inputs, tabs, gantt bars, timeline controls, model tree nodes, link buttons) to ensure automated E2E testing passes seamlessly.",
+    "Ensure 3D viewer container has a dark/neutral canvas backdrop (slate-900) so IFC geometry with phase colors stands out crisp and clear.",
+    "Avoid generic centered layouts; prioritize desktop-first multi-pane layouts with resizable borders and clear visual hierarchy.",
+    "Limit use of raw translucent transparent backgrounds. Header and dropdowns must use backdrop-blur with opaque fallbacks for optimal text contrast.",
+    "Implement Sonner toast notifications for key 4D actions (e.g., '14 objets IFC liés à la tâche Bétonnage Étage 1', 'Simulation 4D démarrée', 'Fichier IFC chargé avec succès')."
+  ]
+}
