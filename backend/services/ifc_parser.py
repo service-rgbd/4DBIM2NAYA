@@ -1,6 +1,7 @@
 """Pure-Python IFC (ISO-10303-21 / STEP) metadata extractor. Geometry is rendered client-side by web-ifc."""
 import re
 from collections import defaultdict
+from typing import Callable, Optional
 
 SPATIAL = {"IFCPROJECT", "IFCSITE", "IFCBUILDING", "IFCBUILDINGSTOREY", "IFCSPACE"}
 SKIP = {"IFCOPENINGELEMENT", "IFCVIRTUALELEMENT", "IFCANNOTATION", "IFCGRID"}
@@ -59,49 +60,57 @@ def _conv(tok):
             return tok
 
 
-def parse_args(s):
+def _read_string(s: str, i: int):
+    """Reads a STEP string starting at the opening quote; '' is an escaped quote."""
+    j, buf = i + 1, []
+    while True:
+        k = s.index("'", j)
+        if k + 1 < len(s) and s[k + 1] == "'":
+            buf.append(s[j:k] + "'")
+            j = k + 2
+            continue
+        buf.append(s[j:k])
+        return _decode("".join(buf)), k + 1
+
+
+def _close(stack: list):
+    v = stack.pop()
+    stack[-1].append({"type": v.name, "value": v[0] if len(v) == 1 else list(v)} if isinstance(v, _Typed) else v)
+
+
+def _read_token(s: str, i: int, stack: list) -> int:
+    m = _TOKEN.match(s, i)
+    tok, i = m.group(), m.end()
+    while i < len(s) and s[i] in " \t\r\n":
+        i += 1
+    if i < len(s) and s[i] == "(" and re.match(r"^[A-Z][A-Z0-9_]*$", tok):
+        stack.append(_Typed(tok))
+        return i + 1
+    stack[-1].append(_conv(tok))
+    return i
+
+
+def parse_args(s: str) -> list:
     stack, i, n = [[]], 0, len(s)
     while i < n:
         c = s[i]
         if c == "'":
-            j, buf = i + 1, []
-            while True:
-                k = s.index("'", j)
-                if k + 1 < n and s[k + 1] == "'":
-                    buf.append(s[j:k] + "'")
-                    j = k + 2
-                    continue
-                buf.append(s[j:k])
-                i = k + 1
-                break
-            stack[-1].append(_decode("".join(buf)))
+            v, i = _read_string(s, i)
+            stack[-1].append(v)
         elif c == "(":
             stack.append([])
             i += 1
         elif c == ")":
-            v = stack.pop()
-            if isinstance(v, _Typed):
-                stack[-1].append({"type": v.name, "value": v[0] if len(v) == 1 else list(v)})
-            else:
-                stack[-1].append(v)
+            _close(stack)
             i += 1
         elif c in ", \r\n\t":
             i += 1
         else:
-            m = _TOKEN.match(s, i)
-            tok = m.group()
-            i = m.end()
-            while i < n and s[i] in " \t\r\n":
-                i += 1
-            if i < n and s[i] == "(" and re.match(r"^[A-Z][A-Z0-9_]*$", tok):
-                stack.append(_Typed(tok))
-                i += 1
-            else:
-                stack[-1].append(_conv(tok))
+            i = _read_token(s, i, stack)
     return stack[0]
 
 
-def split_statements(data):
+def split_statements(data: str) -> list:
     out, start, in_str = [], 0, False
     for m in re.finditer(r"[';]", data):
         if m.group() == "'":
@@ -125,7 +134,7 @@ def _val(v):
     return v
 
 
-def discipline_of(ifc_type):
+def discipline_of(ifc_type: str) -> str:
     t = ifc_type.upper().replace("IFC", "", 1)
     if any(t.startswith(p) for p in STRUCT):
         return "Structure"
@@ -136,167 +145,201 @@ def discipline_of(ifc_type):
     return "Autre"
 
 
-def parse_ifc(raw: bytes, progress=lambda p: None):
-    text = raw.decode("latin-1")
+def _opt_str(a: list, i: int) -> Optional[str]:
+    return a[i] if len(a) > i and isinstance(a[i], str) else None
+
+
+_MATERIAL_NEXT = {
+    "IFCMATERIALLIST": lambda a: a[0] or [],
+    "IFCMATERIALLAYERSETUSAGE": lambda a: [a[0]],
+    "IFCMATERIALLAYERSET": lambda a: a[0] or [],
+    "IFCMATERIALLAYER": lambda a: [a[0]] if a[0] is not None else [],
+}
+
+
+class IfcIndex:
+    """Lazy index over STEP entities and the relationships needed for metadata extraction."""
+
+    def __init__(self, types: dict, raw_args: dict):
+        self.types, self.raw, self.cache = types, raw_args, {}
+        self.contained, self.parent_of, self.type_of, self.mat_of = {}, {}, {}, {}
+        self.children, self.psets_of = defaultdict(list), defaultdict(list)
+        self.root_ids, self.storey_name = set(), {}
+        handlers = {
+            "IFCRELCONTAINEDINSPATIALSTRUCTURE": self._rel_contained,
+            "IFCRELAGGREGATES": self._rel_aggregates,
+            "IFCRELNESTS": self._rel_aggregates,
+            "IFCRELDEFINESBYPROPERTIES": lambda a: self._rel_many(a, self.psets_of),
+            "IFCRELDEFINESBYTYPE": lambda a: self._rel_one(a, self.type_of),
+            "IFCRELASSOCIATESMATERIAL": lambda a: self._rel_one(a, self.mat_of),
+        }
+        for eid, t in types.items():
+            if t in handlers:
+                handlers[t](self.args(eid))
+
+    def args(self, eid: int) -> list:
+        if eid not in self.cache:
+            self.cache[eid] = parse_args(self.raw[eid])
+        return self.cache[eid]
+
+    def _rel_contained(self, a: list):
+        for r in a[4] or []:
+            self.contained[int(r)] = int(a[5])
+            self.root_ids.add(int(r))
+
+    def _rel_aggregates(self, a: list):
+        for r in a[5] or []:
+            self.parent_of[int(r)] = int(a[4])
+            self.children[int(a[4])].append(int(r))
+
+    @staticmethod
+    def _rel_one(a: list, target: dict):
+        for r in a[4] or []:
+            target[int(r)] = int(a[5])
+
+    @staticmethod
+    def _rel_many(a: list, target: dict):
+        for r in a[4] or []:
+            target[int(r)].append(int(a[5]))
+
+    def material_names(self, mid: Optional[int], depth: int = 0) -> list:
+        if mid is None or depth > 4 or mid not in self.types:
+            return []
+        t, a = self.types[mid], self.args(mid)
+        if t == "IFCMATERIAL":
+            return [a[0]]
+        nxt = _MATERIAL_NEXT.get(t, lambda _: [])(a)
+        return [n for r in nxt for n in self.material_names(int(r), depth + 1)]
+
+    def _refs_of_type(self, refs, prefix: str) -> list:
+        return [self.args(int(r)) for r in refs or [] if self.types.get(int(r), "").startswith(prefix)]
+
+    def properties(self, eid: int) -> list:
+        props = []
+        for pid in self.psets_of.get(eid, []):
+            t = self.types.get(pid)
+            if t == "IFCPROPERTYSET":
+                a = self.args(pid)
+                props += [{"pset": a[2] or "", "name": p[0], "value": _val(p[2])} for p in self._refs_of_type(a[4], "IFCPROPERTYSINGLEVALUE")]
+            elif t == "IFCELEMENTQUANTITY":
+                a = self.args(pid)
+                props += [{"pset": a[2] or "Quantités", "name": q[0], "value": _val(q[3])} for q in self._refs_of_type(a[5], "IFCQUANTITY")]
+        return props
+
+    def _type_props(self, eid: int) -> list:
+        tid = self.type_of.get(eid)
+        if tid not in self.types:
+            return []
+        ta = self.args(tid)
+        head = [{"pset": "Type", "name": "Nom du type", "value": ta[2] if len(ta) > 2 else None}]
+        return head + [{**p, "pset": f"Type · {p['pset']}"} for p in self.properties(tid)]
+
+    def _material_props(self, eid: int) -> list:
+        mats = [m for m in self.material_names(self.mat_of.get(eid)) if m]
+        return [{"pset": "Matériaux", "name": "Matériau", "value": ", ".join(dict.fromkeys(mats))}] if mats else []
+
+    def spatial(self) -> list:
+        out = []
+        for eid, t in self.types.items():
+            if t not in SPATIAL:
+                continue
+            a = self.args(eid)
+            elev = a[9] if t == "IFCBUILDINGSTOREY" and len(a) > 9 and isinstance(a[9], (int, float)) else None
+            out.append({"express_id": eid, "global_id": a[0], "ifc_type": t, "name": a[2] or t, "elevation": elev, "parent": self.parent_of.get(eid)})
+        self.storey_name = {s["express_id"]: s["name"] for s in out if s["ifc_type"] == "IFCBUILDINGSTOREY"}
+        return out
+
+    def storey_for(self, eid: Optional[int], depth: int = 0) -> Optional[str]:
+        if depth > 20 or eid is None:
+            return None
+        if eid in self.storey_name:
+            return self.storey_name[eid]
+        return self.storey_for(self.contained.get(eid, self.parent_of.get(eid)), depth + 1)
+
+    def element_ids(self, spatial_ids: set) -> list:
+        """Elements contained in the spatial structure plus their aggregated parts."""
+        out, stack, seen = [], list(self.root_ids), set()
+        while stack:
+            eid = stack.pop()
+            if eid in seen or eid not in self.types:
+                continue
+            seen.add(eid)
+            if eid not in spatial_ids and self.types[eid] not in SKIP:
+                out.append(eid)
+            stack.extend(self.children.get(eid, []))
+        return sorted(out)
+
+    def element(self, eid: int) -> Optional[dict]:
+        a, t = self.args(eid), self.types[eid]
+        if not a or not isinstance(a[0], str):
+            return None
+        props = self.properties(eid) + self._type_props(eid) + self._material_props(eid)
+        return {
+            "express_id": eid, "global_id": a[0], "ifc_type": t, "name": a[2] or "",
+            "object_type": _opt_str(a, 4), "tag": _opt_str(a, 7),
+            "storey": self.storey_for(eid) or "Non localisé", "parent_express_id": self.parent_of.get(eid),
+            "discipline": discipline_of(t), "properties": props[:300],
+        }
+
+    def _unit_name(self, uid: int) -> Optional[str]:
+        ut = self.types.get(uid)
+        if ut not in ("IFCSIUNIT", "IFCCONVERSIONBASEDUNIT"):
+            return None
+        ua = self.args(uid)
+        if ua[1] != "LENGTHUNIT":
+            return None
+        if ut == "IFCSIUNIT":
+            return SI_PREFIX.get(ua[2], "") + ("m" if ua[3] == "METRE" else str(ua[3]))
+        return str(ua[2]).lower()
+
+    def length_unit(self) -> str:
+        assignment = next((eid for eid, t in self.types.items() if t == "IFCUNITASSIGNMENT"), None)
+        if assignment is None:
+            return "inconnue"
+        names = [self._unit_name(int(r)) for r in self.args(assignment)[0] or []]
+        return next((n for n in names if n), "inconnue")
+
+
+def _read_header(text: str):
     if not text.lstrip().startswith("ISO-10303-21"):
         raise ValueError("Fichier non conforme ISO-10303-21 (en-tête STEP absent)")
     schema_m = re.search(r"FILE_SCHEMA\s*\(\s*\(\s*'([^']+)'", text)
-    schema = schema_m.group(1) if schema_m else "inconnu"
     di = text.find("DATA;")
     if di < 0:
         raise ValueError("Section DATA absente du fichier IFC")
-    stmts = split_statements(text[di + 5:])
-    progress(10)
+    return (schema_m.group(1) if schema_m else "inconnu"), text[di + 5:]
+
+
+def _index_entities(stmts: list):
     types, raw_args = {}, {}
     for st in stmts:
         m = _ENTITY.match(st)
-        if not m:
-            continue
-        eid, t = int(m.group(1)), m.group(2).upper()
-        types[eid] = t
-        raw_args[eid] = m.group(3)
+        if m:
+            eid = int(m.group(1))
+            types[eid], raw_args[eid] = m.group(2).upper(), m.group(3)
     if not types:
         raise ValueError("Aucune entité IFC trouvée")
+    return types, raw_args
+
+
+def parse_ifc(raw: bytes, progress: Callable[[int], None] = lambda p: None) -> dict:
+    schema, data = _read_header(raw.decode("latin-1"))
+    stmts = split_statements(data)
+    progress(10)
+    types, raw_args = _index_entities(stmts)
     progress(25)
-    cache = {}
-
-    def args(eid):
-        if eid not in cache:
-            cache[eid] = parse_args(raw_args[eid])
-        return cache[eid]
-
-    contained, parent_of, children = {}, {}, defaultdict(list)
-    psets_of, type_of, mat_of = defaultdict(list), {}, {}
-    root_ids = set()
-    for eid, t in types.items():
-        if t == "IFCRELCONTAINEDINSPATIALSTRUCTURE":
-            a = args(eid)
-            for r in a[4] or []:
-                contained[int(r)] = int(a[5])
-                root_ids.add(int(r))
-        elif t in ("IFCRELAGGREGATES", "IFCRELNESTS"):
-            a = args(eid)
-            for r in a[5] or []:
-                parent_of[int(r)] = int(a[4])
-                children[int(a[4])].append(int(r))
-        elif t == "IFCRELDEFINESBYPROPERTIES":
-            a = args(eid)
-            for r in a[4] or []:
-                psets_of[int(r)].append(int(a[5]))
-        elif t == "IFCRELDEFINESBYTYPE":
-            a = args(eid)
-            for r in a[4] or []:
-                type_of[int(r)] = int(a[5])
-        elif t == "IFCRELASSOCIATESMATERIAL":
-            a = args(eid)
-            for r in a[4] or []:
-                mat_of[int(r)] = int(a[5])
+    idx = IfcIndex(types, raw_args)
     progress(45)
-
-    def material_names(mid, depth=0):
-        if mid is None or depth > 4 or mid not in types:
-            return []
-        t, a = types[mid], args(mid)
-        if t == "IFCMATERIAL":
-            return [a[0]]
-        if t == "IFCMATERIALLIST":
-            return [n for r in a[0] or [] for n in material_names(int(r), depth + 1)]
-        if t == "IFCMATERIALLAYERSETUSAGE":
-            return material_names(int(a[0]), depth + 1)
-        if t == "IFCMATERIALLAYERSET":
-            return [n for r in a[0] or [] for n in material_names(int(r), depth + 1)]
-        if t == "IFCMATERIALLAYER":
-            return material_names(int(a[0]) if a[0] is not None else None, depth + 1)
-        return []
-
-    def properties(eid):
-        props = []
-        for pid in psets_of.get(eid, []):
-            if pid not in types:
-                continue
-            t, a = types[pid], args(pid)
-            if t == "IFCPROPERTYSET":
-                for r in a[4] or []:
-                    if types.get(int(r)) == "IFCPROPERTYSINGLEVALUE":
-                        pa = args(int(r))
-                        props.append({"pset": a[2] or "", "name": pa[0], "value": _val(pa[2])})
-            elif t == "IFCELEMENTQUANTITY":
-                for r in a[5] or []:
-                    if types.get(int(r), "").startswith("IFCQUANTITY"):
-                        qa = args(int(r))
-                        props.append({"pset": a[2] or "Quantités", "name": qa[0], "value": _val(qa[3])})
-        return props
-
-    spatial = []
-    for eid, t in types.items():
-        if t in SPATIAL:
-            a = args(eid)
-            spatial.append({
-                "express_id": eid, "global_id": a[0], "ifc_type": t, "name": a[2] or t,
-                "elevation": a[9] if t == "IFCBUILDINGSTOREY" and len(a) > 9 and isinstance(a[9], (int, float)) else None,
-                "parent": parent_of.get(eid),
-            })
-    spatial_ids = {s["express_id"] for s in spatial}
-    storey_name = {s["express_id"]: s["name"] for s in spatial if s["ifc_type"] == "IFCBUILDINGSTOREY"}
-
-    def storey_for(eid, depth=0):
-        if depth > 20 or eid is None:
-            return None
-        if eid in storey_name:
-            return storey_name[eid]
-        if eid in contained:
-            return storey_for(contained[eid], depth + 1)
-        return storey_for(parent_of.get(eid), depth + 1)
-
-    element_ids, stack = [], list(root_ids)
-    seen = set()
-    while stack:
-        eid = stack.pop()
-        if eid in seen or eid not in types:
-            continue
-        seen.add(eid)
-        if eid not in spatial_ids and types[eid] not in SKIP:
-            element_ids.append(eid)
-        stack.extend(children.get(eid, []))
+    spatial = idx.spatial()
+    ids = idx.element_ids({s["express_id"] for s in spatial})
     progress(60)
-
-    elements, total = [], max(len(element_ids), 1)
-    for i, eid in enumerate(sorted(element_ids)):
-        a, t = args(eid), types[eid]
-        if not a or not isinstance(a[0], str):
-            continue
-        props = properties(eid)
-        tid = type_of.get(eid)
-        if tid in types:
-            ta = args(tid)
-            props.append({"pset": "Type", "name": "Nom du type", "value": ta[2] if len(ta) > 2 else None})
-            props.extend({**p, "pset": f"Type · {p['pset']}"} for p in properties(tid))
-        mats = material_names(mat_of.get(eid))
-        if mats:
-            props.append({"pset": "Matériaux", "name": "Matériau", "value": ", ".join(dict.fromkeys(m for m in mats if m))})
-        elements.append({
-            "express_id": eid, "global_id": a[0], "ifc_type": t, "name": a[2] or "",
-            "object_type": a[4] if len(a) > 4 and isinstance(a[4], str) else None,
-            "tag": a[7] if len(a) > 7 and isinstance(a[7], str) else None,
-            "storey": storey_for(eid) or "Non localisé", "parent_express_id": parent_of.get(eid),
-            "discipline": discipline_of(t), "properties": props[:300],
-        })
+    elements = []
+    for i, eid in enumerate(ids):
+        e = idx.element(eid)
+        if e:
+            elements.append(e)
         if i % 200 == 0:
-            progress(60 + int(35 * i / total))
-
-    unit = "inconnue"
-    for eid, t in types.items():
-        if t == "IFCUNITASSIGNMENT":
-            for r in args(eid)[0] or []:
-                ut = types.get(int(r))
-                if ut == "IFCSIUNIT":
-                    ua = args(int(r))
-                    if ua[1] == "LENGTHUNIT":
-                        unit = SI_PREFIX.get(ua[2], "") + ("m" if ua[3] == "METRE" else str(ua[3]))
-                elif ut == "IFCCONVERSIONBASEDUNIT":
-                    ua = args(int(r))
-                    if ua[1] == "LENGTHUNIT":
-                        unit = str(ua[2]).lower()
-            break
+            progress(60 + int(35 * i / max(len(ids), 1)))
+    unit = idx.length_unit()
     progress(97)
     return {"schema": schema, "length_unit": unit, "entity_count": len(types), "spatial": spatial, "elements": elements}

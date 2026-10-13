@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { AlertTriangle } from "lucide-react";
@@ -14,10 +14,12 @@ export default function MoveConfirmDialog({ move, pid, onClose }) {
   const qc = useQueryClient();
   const [preview, setPreview] = useState(null);
   const [busy, setBusy] = useState(false);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!move) { setPreview(null); return; }
-    post(`/tasks/${move.task.id}/preview-move`, move.change).then(setPreview).catch((e) => { toast.error(errMsg(e)); onClose(); });
-  }, [move]); // eslint-disable-line react-hooks/exhaustive-deps
+    post(`/tasks/${move.task.id}/preview-move`, move.change).then(setPreview).catch((e) => { toast.error(errMsg(e)); closeRef.current(); });
+  }, [move]);
 
   const confirm = async () => {
     setBusy(true);

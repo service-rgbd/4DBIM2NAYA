@@ -69,6 +69,18 @@ async def preview_move(tid: str, body: MoveIn, user=Depends(get_current_user)):
             "project_finish_before": p.get("computed_finish"), "project_finish_after": finish}
 
 
+def _closing_exception(t: dict, upd: dict, reason):
+    """Validates closure: progress must be 100 % unless a traced exception reason is given."""
+    if upd.get("status") != "termine" or t["status"] == "termine":
+        return None
+    upd.setdefault("actual_end", today().isoformat())
+    if t.get("progress", 0) >= 100:
+        return None
+    if not reason:
+        raise HTTPException(status_code=422, detail="Clôture refusée : avancement < 100 %. Saisissez l'avancement ou une justification d'exception.")
+    return reason
+
+
 @router.patch("/tasks/{tid}")
 async def update_task(tid: str, body: TaskPatch, user=Depends(get_current_user)):
     t = await _task(tid)
@@ -78,13 +90,7 @@ async def update_task(tid: str, body: TaskPatch, user=Depends(get_current_user))
     upd = body.model_dump(mode="json", exclude_unset=True, exclude={"version", "exception_reason"})
     if upd.get("is_milestone"):
         upd["duration"] = 0
-    exception = None
-    if upd.get("status") == "termine" and t["status"] != "termine":
-        if t.get("progress", 0) < 100:
-            if not body.exception_reason:
-                raise HTTPException(status_code=422, detail="Clôture refusée : avancement < 100 %. Saisissez l'avancement ou une justification d'exception.")
-            exception = body.exception_reason
-        upd.setdefault("actual_end", today().isoformat())
+    exception = _closing_exception(t, upd, body.exception_reason)
     before, after = diff(t, upd, FIELDS + ["actual_end"])
     r = await db.tasks.update_one({"id": tid, "version": body.version},
                                   {"$set": {**upd, "updated_at": now_iso(), "updated_by": user["email"]}, "$inc": {"version": 1}})

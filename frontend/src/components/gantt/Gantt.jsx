@@ -64,16 +64,16 @@ function depPath(d, pos, dw) {
   return `M${x1},${p.y} H${mid} V${s.y} H${x2 + into * 0} `;
 }
 
-export default function Gantt({ tasks, deps, zoom = "week", selectedId, highlightIds, onSelect, onDragEnd, canEdit, baseline, simDate, today, showCritical, rowHeight = 34, compact, calendar }) {
-  const range = useRange(tasks, baseline, simDate);
+/** Pointer drag (move / resize) snapped to days; callbacks read through a ref so they are never stale. */
+function useGanttDrag(dw, onSelect, onDragEnd, calendar) {
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
-  const scroller = useRef(null);
-  const dw = DW[zoom];
-  const rh = rowHeight;
+  const cb = useRef({});
+  cb.current = { onSelect, onDragEnd, calendar };
+  const dragId = drag?.id;
 
   useEffect(() => {
-    if (!drag) return undefined;
+    if (!dragId) return undefined;
     const move = (e) => {
       const dx = e.clientX - dragRef.current.x0;
       const snap = Math.round(dx / dw) * dw;
@@ -84,28 +84,64 @@ export default function Gantt({ tasks, deps, zoom = "week", selectedId, highligh
     const up = () => {
       const st = dragRef.current;
       setDrag(null);
-      if (!st.moved) { onSelect?.(st.task); return; }
+      const { onSelect: select, onDragEnd: end, calendar: cal } = cb.current;
+      if (!st.moved) { select?.(st.task); return; }
       const nd = Math.round(st.snap / dw);
       if (!nd) return;
       const t = st.task;
-      if (st.mode === "move") onDragEnd?.(t, { start: addDays(t.early_start, nd) });
+      if (st.mode === "move") end?.(t, { start: addDays(t.early_start, nd) });
       else {
-        const end = addDays(t.early_finish, nd);
-        onDragEnd?.(t, { start: t.start, duration: Math.max(1, end < t.early_start ? 1 : workingDaysBetween(t.early_start, end, calendar)) });
+        const newEnd = addDays(t.early_finish, nd);
+        end?.(t, { start: t.start, duration: Math.max(1, newEnd < t.early_start ? 1 : workingDaysBetween(t.early_start, newEnd, cal)) });
       }
     };
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up, { once: true });
     return () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); };
-  }, [drag?.id, dw]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dragId, dw]);
 
+  const onDown = (e, t, mode) => {
+    e.preventDefault();
+    dragRef.current = { id: t.id, task: t, mode, x0: e.clientX, snap: 0, moved: false };
+    setDrag({ ...dragRef.current });
+  };
+  return { drag, onDown };
+}
+
+const TaskTable = ({ tasks, compact, rh, selectedId, highlightIds, showCritical, onSelect }) => (
+  <div className="sticky left-0 z-20 shrink-0 border-r border-slate-200 bg-white" style={{ width: compact ? 220 : 380 }}>
+    <div className="sticky top-0 z-10 flex h-12 items-end border-b border-slate-200 bg-slate-50 px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+      <span className="w-14">Code</span><span className="flex-1">Activité</span>
+      {!compact && <><span className="w-16">Début</span><span className="w-16">Fin</span><span className="w-9 text-right">Dur.</span></>}
+    </div>
+    {tasks.map((t) => (
+      <div key={t.id} data-testid={`gantt-row-${t.code}`} onClick={() => onSelect?.(t)} style={{ height: rh }}
+        className={`flex cursor-pointer items-center border-b border-slate-100 px-2 text-xs transition-colors ${selectedId === t.id ? "bg-blue-50" : highlightIds?.has(t.id) ? "bg-amber-50" : "hover:bg-slate-50"}`}>
+        <span className={`w-14 font-mono text-[11px] ${showCritical && t.is_critical ? "font-bold text-red-700" : "text-slate-500"}`}>{t.code}</span>
+        <span className="flex-1 truncate font-medium text-slate-800" title={t.name}>{t.name}</span>
+        {!compact && <><span className="w-16 font-mono text-[11px] text-slate-600">{fmtShort(t.early_start)}</span><span className="w-16 font-mono text-[11px] text-slate-600">{fmtShort(t.early_finish)}</span><span className="w-9 text-right font-mono text-[11px] text-slate-600">{t.is_milestone ? "◆" : `${t.duration}j`}</span></>}
+      </div>
+    ))}
+  </div>
+);
+
+function useScrollToDate(scroller, range, simDate, dw, compact) {
   useEffect(() => {
     if (!range || !simDate || !scroller.current) return;
     const x = diffDays(range.origin, simDate) * dw;
     const el = scroller.current;
     const left = compact ? 0 : 380;
     if (x < el.scrollLeft || x > el.scrollLeft + el.clientWidth - left - 40) el.scrollLeft = Math.max(0, x - (el.clientWidth - left) / 2);
-  }, [simDate, range, dw, compact]);
+  }, [scroller, simDate, range, dw, compact]);
+}
+
+export default function Gantt({ tasks, deps, zoom = "week", selectedId, highlightIds, onSelect, onDragEnd, canEdit, baseline, simDate, today, showCritical, rowHeight = 34, compact, calendar }) {
+  const range = useRange(tasks, baseline, simDate);
+  const scroller = useRef(null);
+  const dw = DW[zoom];
+  const rh = rowHeight;
+  const { drag, onDown } = useGanttDrag(dw, onSelect, onDragEnd, calendar);
+  useScrollToDate(scroller, range, simDate, dw, compact);
 
   if (!range) return <div className="p-6 text-sm text-slate-500">Aucune activité à afficher.</div>;
   const { origin, days } = range;
@@ -115,31 +151,13 @@ export default function Gantt({ tasks, deps, zoom = "week", selectedId, highligh
     const w = t.is_milestone ? 0 : (diffDays(t.early_start, t.early_finish) + 1) * dw;
     pos[t.id] = { x, w, y: i * rh + rh / 2 };
   });
-  const onDown = (e, t, mode) => {
-    e.preventDefault();
-    dragRef.current = { id: t.id, task: t, mode, x0: e.clientX, snap: 0, moved: false };
-    setDrag({ ...dragRef.current });
-  };
   const height = tasks.length * rh;
   const nonWorking = zoom !== "month" ? Array.from({ length: days }, (_, i) => addDays(origin, i)).map((d, i) => (!isWorking(d, calendar) ? i : null)).filter((v) => v !== null) : [];
 
   return (
     <div ref={scroller} className="relative h-full overflow-auto scroll-thin bg-white" data-testid="gantt-chart">
       <div className="flex" style={{ width: (compact ? 220 : 380) + days * dw }}>
-        <div className="sticky left-0 z-20 shrink-0 border-r border-slate-200 bg-white" style={{ width: compact ? 220 : 380 }}>
-          <div className="sticky top-0 z-10 flex h-12 items-end border-b border-slate-200 bg-slate-50 px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-            <span className="w-14">Code</span><span className="flex-1">Activité</span>
-            {!compact && <><span className="w-16">Début</span><span className="w-16">Fin</span><span className="w-9 text-right">Dur.</span></>}
-          </div>
-          {tasks.map((t) => (
-            <div key={t.id} data-testid={`gantt-row-${t.code}`} onClick={() => onSelect?.(t)} style={{ height: rh }}
-              className={`flex cursor-pointer items-center border-b border-slate-100 px-2 text-xs transition-colors ${selectedId === t.id ? "bg-blue-50" : highlightIds?.has(t.id) ? "bg-amber-50" : "hover:bg-slate-50"}`}>
-              <span className={`w-14 font-mono text-[11px] ${showCritical && t.is_critical ? "font-bold text-red-700" : "text-slate-500"}`}>{t.code}</span>
-              <span className="flex-1 truncate font-medium text-slate-800" title={t.name}>{t.name}</span>
-              {!compact && <><span className="w-16 font-mono text-[11px] text-slate-600">{fmtShort(t.early_start)}</span><span className="w-16 font-mono text-[11px] text-slate-600">{fmtShort(t.early_finish)}</span><span className="w-9 text-right font-mono text-[11px] text-slate-600">{t.is_milestone ? "◆" : `${t.duration}j`}</span></>}
-            </div>
-          ))}
-        </div>
+        <TaskTable tasks={tasks} compact={compact} rh={rh} selectedId={selectedId} highlightIds={highlightIds} showCritical={showCritical} onSelect={onSelect} />
         <div className="relative" style={{ width: days * dw }}>
           <div className="sticky top-0 z-10"><Header origin={origin} days={days} dw={dw} zoom={zoom} /></div>
           <div className="relative" style={{ height }}>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -120,8 +120,9 @@ function ProgressTab({ task, pid, canProgress }) {
 function DepsTab({ task, pid, tasks, deps, canEdit }) {
   const qc = useQueryClient();
   const [f, setF] = useState({ predecessor_id: "", type: "FS", lag: 0 });
-  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
-  const mine = deps.filter((d) => d.successor_id === task.id || d.predecessor_id === task.id);
+  const byId = useMemo(() => Object.fromEntries(tasks.map((t) => [t.id, t])), [tasks]);
+  const mine = useMemo(() => deps.filter((d) => d.successor_id === task.id || d.predecessor_id === task.id), [deps, task.id]);
+  const candidates = useMemo(() => tasks.filter((t) => t.id !== task.id), [tasks, task.id]);
   const add = async (e) => {
     e.preventDefault();
     try {
@@ -151,7 +152,7 @@ function DepsTab({ task, pid, tasks, deps, canEdit }) {
       {canEdit && (
         <form onSubmit={add} className="space-y-2 rounded-md border p-3" data-testid="dep-form">
           <Field label="Prédécesseur"><select data-testid="dep-predecessor-select" required className={sel} value={f.predecessor_id} onChange={(e) => setF({ ...f, predecessor_id: e.target.value })}>
-            <option value="">— choisir —</option>{tasks.filter((t) => t.id !== task.id).map((t) => <option key={t.id} value={t.id}>{t.code} {t.name}</option>)}
+            <option value="">— choisir —</option>{candidates.map((t) => <option key={t.id} value={t.id}>{t.code} {t.name}</option>)}
           </select></Field>
           <div className="grid grid-cols-2 gap-2">
             <Field label="Type"><select data-testid="dep-type-select" className={sel} value={f.type} onChange={(e) => setF({ ...f, type: e.target.value })}>{Object.entries(DEP_TYPES).map(([k, l]) => <option key={k} value={k}>{k} — {l}</option>)}</select></Field>

@@ -26,6 +26,12 @@ Données réelles persistées, permissions serveur, traçabilité, pas de faux t
 - 4D : curseur temps, lecture/pause, pas jour/semaine/mois, modes Prévu/Réel/Écart, légende avec comptages, filtres lot/entreprise/zone, synchro Gantt ↔ modèle
 - Audit paginé ; tests : 8 unitaires + 31 API (39/39) + Playwright E2E
 
+## Code-review pass (2026-10-13)
+- ifc_parser refactor (classe IfcIndex, parse_args découpé) — sortie identique vérifiée sur les 218 objets
+- compute_schedule découpé (passe avant / arrière), update_task : helper de clôture, annotations de type
+- Frontend : hooks Gantt (useGanttDrag, refs pour callbacks), IfcViewer (useIfcEngine/useEngineSync), ModelTree (StoreyNode/TypeNode), useMemo SidePanel/TaskSheet, suppression des eslint-disable
+- 39/39 tests backend OK après refactor
+
 ## Prioritized backlog
 - P0 : invitations & gestion d'équipe/rôles par projet (UI), export PDF du planning/4D
 - P1 : documents & plans 2D versionnés, réserves liées aux objets BIM, rapports journaliers, coordination entreprises/coactivité

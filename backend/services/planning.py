@@ -1,22 +1,23 @@
 from datetime import date, timedelta
+from typing import Optional
 from fastapi import HTTPException
 from pymongo import UpdateOne
 from core.db import db, today
 from services.scheduling import compute_schedule, CycleError, WorkCalendar, planned_fraction, health
 
 
-async def load_graph(project_id):
+async def load_graph(project_id: str):
     tasks = await db.tasks.find({"project_id": project_id, "deleted_at": None}, {"_id": 0}).sort("sort_order", 1).to_list(5000)
     deps = await db.dependencies.find({"project_id": project_id}, {"_id": 0}).to_list(20000)
     return tasks, deps
 
 
-def cycle_message(tasks, ids):
+def cycle_message(tasks: list, ids: list) -> str:
     names = [t["code"] + " " + t["name"] for t in tasks if t["id"] in set(ids)]
     return "Dépendance circulaire détectée entre : " + ", ".join(names[:8])
 
 
-async def recompute(project_id):
+async def recompute(project_id: str):
     """Recalculate CPM dates and critical path; persisted so states are reproducible from stored data."""
     project = await db.projects.find_one({"id": project_id})
     tasks, deps = await load_graph(project_id)
@@ -31,7 +32,7 @@ async def recompute(project_id):
     return res, finish
 
 
-def simulate(tasks, deps, calendar, overrides):
+def simulate(tasks: list, deps: list, calendar: dict, overrides: dict):
     patched = [{**t, **overrides.get(t["id"], {})} for t in tasks]
     try:
         return compute_schedule(patched, deps, calendar)
@@ -39,12 +40,12 @@ def simulate(tasks, deps, calendar, overrides):
         raise HTTPException(status_code=400, detail=cycle_message(tasks, e.task_ids))
 
 
-def with_health(task, at=None):
+def with_health(task: dict, at: Optional[date] = None) -> dict:
     task["health"] = health(task, at or today())
     return task
 
 
-def kpis(tasks, records, calendar, at: date):
+def kpis(tasks: list, records: list, calendar: dict, at: date):
     work = [t for t in tasks if t.get("status") != "annule" and not t.get("is_milestone") and t.get("early_start")]
     total = sum(int(t["duration"]) for t in work) or 1
     cal = WorkCalendar(calendar, min((date.fromisoformat(t["early_start"]) for t in work), default=at))
@@ -63,7 +64,7 @@ def kpis(tasks, records, calendar, at: date):
     }, cal
 
 
-def s_curve(tasks, records, cal, start: date, end: date):
+def s_curve(tasks: list, records: list, cal: WorkCalendar, start: date, end: date) -> list:
     work = [t for t in tasks if t.get("status") != "annule" and not t.get("is_milestone") and t.get("early_start")]
     total = sum(int(t["duration"]) for t in work) or 1
     by_task = {}

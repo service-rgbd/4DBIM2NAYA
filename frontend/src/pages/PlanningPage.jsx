@@ -14,6 +14,7 @@ import { errMsg, post } from "@/lib/api";
 import { HEALTH, canWrite } from "@/lib/format";
 
 const sel = "h-8 rounded-md border border-slate-300 bg-white px-2 text-xs";
+const HEALTH_OPTIONS = Object.entries(HEALTH).filter(([k]) => k !== "non_planifie");
 
 export function useTaskFilters(tasks) {
   const [f, setF] = useState({ q: "", lot: "", company: "", zone: "", health: "" });
@@ -35,7 +36,7 @@ export function useTaskFilters(tasks) {
         </select>
       ))}
       <select data-testid="filter-health" className={sel} value={f.health} onChange={(e) => setF({ ...f, health: e.target.value })}>
-        <option value="">Tous états</option>{Object.entries(HEALTH).filter(([k]) => k !== "non_planifie").map(([k, h]) => <option key={k} value={k}>{h.label}</option>)}
+        <option value="">Tous états</option>{HEALTH_OPTIONS.map(([k, h]) => <option key={k} value={k}>{h.label}</option>)}
       </select>
     </>
   );
@@ -59,10 +60,11 @@ export default function PlanningPage() {
   const role = project?.my_role;
   const editable = canWrite(role) && project?.status !== "archive";
 
+  const hasTasks = tasks.length > 0;
   useEffect(() => {
     const tid = sp.get("task");
-    if (tid && tasks.length) { setSheet(tid); setSp({}, { replace: true }); }
-  }, [sp, tasks.length]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (tid && hasTasks) { setSheet(tid); setSp({}, { replace: true }); }
+  }, [sp, setSp, hasTasks]);
 
   const baseline = useMemo(() => {
     const b = baselines.find((x) => x.id === baselineId);

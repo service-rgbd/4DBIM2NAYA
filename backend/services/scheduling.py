@@ -86,26 +86,24 @@ def _d(v):
     return v if isinstance(v, date) else date.fromisoformat(v)
 
 
-def compute_schedule(tasks, deps, calendar: dict):
-    if not tasks:
-        return {}, None
-    origin = min(_d(t["start"]) for t in tasks)
-    cal = WorkCalendar(calendar, origin)
-    by_id = {t["id"]: t for t in tasks}
-    order = topo_order(list(by_id), deps)
-    preds, succs = defaultdict(list), defaultdict(list)
-    for d in deps:
-        if d["predecessor_id"] in by_id and d["successor_id"] in by_id:
-            preds[d["successor_id"]].append(d)
-            succs[d["predecessor_id"]].append(d)
-    dur = {i: (0 if t.get("is_milestone") else int(t["duration"])) for i, t in by_id.items()}
+def _forward_requirement(d: dict, ES: dict, EF: dict, n: int) -> int:
+    p, lag = d["predecessor_id"], d.get("lag", 0)
+    return {"FS": EF[p] + lag, "SS": ES[p] + lag, "FF": EF[p] + lag - n, "SF": ES[p] + lag - n}[d["type"]]
+
+
+def _backward_requirement(d: dict, LF: dict, dur: dict, n: int) -> int:
+    s, lag = d["successor_id"], d.get("lag", 0)
+    ls_s = LF[s] - dur[s]
+    return {"FS": ls_s - lag, "SS": ls_s - lag + n, "FF": LF[s] - lag, "SF": LF[s] - lag + n}[d["type"]]
+
+
+def _forward_pass(order: list, by_id: dict, preds: dict, dur: dict, cal: WorkCalendar):
     ES, EF, drivers, after_finish = {}, {}, {}, {}
     for tid in order:
         es = cal.index_of(_d(by_id[tid]["start"]))
         drv, af = [], False
         for d in preds[tid]:
-            p, lag, n = d["predecessor_id"], d.get("lag", 0), dur[tid]
-            req = {"FS": EF[p] + lag, "SS": ES[p] + lag, "FF": EF[p] + lag - n, "SF": ES[p] + lag - n}[d["type"]]
+            req = _forward_requirement(d, ES, EF, dur[tid])
             if req > es:
                 es, drv, af = req, [d], d["type"] in ("FS", "FF")
             elif req == es:
@@ -113,16 +111,36 @@ def compute_schedule(tasks, deps, calendar: dict):
         ES[tid], EF[tid] = es, es + dur[tid]
         drivers[tid] = drv
         after_finish[tid] = af and dur[tid] == 0 and es > 0
-    finish = max(EF.values())
+    return ES, EF, drivers, after_finish
+
+
+def _backward_pass(order: list, succs: dict, dur: dict, finish: int) -> dict:
     LF = {}
     for tid in reversed(order):
-        lf, n = finish, dur[tid]
-        for d in succs[tid]:
-            s, lag = d["successor_id"], d.get("lag", 0)
-            ls_s = LF[s] - dur[s]
-            req = {"FS": ls_s - lag, "SS": ls_s - lag + n, "FF": LF[s] - lag, "SF": LF[s] - lag + n}[d["type"]]
-            lf = min(lf, req)
-        LF[tid] = lf
+        LF[tid] = min([finish] + [_backward_requirement(d, LF, dur, dur[tid]) for d in succs[tid]])
+    return LF
+
+
+def _link_maps(deps: list, by_id: dict):
+    preds, succs = defaultdict(list), defaultdict(list)
+    for d in deps:
+        if d["predecessor_id"] in by_id and d["successor_id"] in by_id:
+            preds[d["successor_id"]].append(d)
+            succs[d["predecessor_id"]].append(d)
+    return preds, succs
+
+
+def compute_schedule(tasks: list, deps: list, calendar: dict):
+    """Forward pass (early dates), backward pass (late dates), then float and critical flag per task."""
+    if not tasks:
+        return {}, None
+    cal = WorkCalendar(calendar, min(_d(t["start"]) for t in tasks))
+    by_id = {t["id"]: t for t in tasks}
+    order = topo_order(list(by_id), deps)
+    preds, succs = _link_maps(deps, by_id)
+    dur = {i: (0 if t.get("is_milestone") else int(t["duration"])) for i, t in by_id.items()}
+    ES, EF, drivers, after_finish = _forward_pass(order, by_id, preds, dur, cal)
+    LF = _backward_pass(order, succs, dur, max(EF.values()))
     result = {}
     for tid in order:
         n = dur[tid]

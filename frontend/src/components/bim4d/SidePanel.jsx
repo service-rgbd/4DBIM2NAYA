@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Link2, Link2Off, MousePointerClick, Trash2 } from "lucide-react";
@@ -33,10 +34,13 @@ function TaskInfo({ task, simDate, today, linkedCount, onSelectObjects }) {
   );
 }
 
+const filterSummary = (filters) => Object.entries(filters).filter(([, v]) => v && v.length).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join("|") : v}`).join(" · ");
+
 function Rules({ pid, tasks }) {
   const qc = useQueryClient();
   const { data = [] } = useQuery({ queryKey: ["rules", pid], queryFn: () => get(`/projects/${pid}/link-rules`) });
-  const byId = Object.fromEntries(tasks.map((t) => [t.id, t]));
+  const byId = useMemo(() => Object.fromEntries(tasks.map((t) => [t.id, t])), [tasks]);
+  const rows = useMemo(() => data.map((r) => ({ ...r, summary: filterSummary(r.filters) })), [data]);
   const remove = async (r) => {
     const withLinks = window.confirm(`Supprimer la règle « ${r.name} ».\nOK = retirer aussi les liaisons créées par cette règle\nAnnuler = conserver les liaisons`);
     try {
@@ -47,11 +51,11 @@ function Rules({ pid, tasks }) {
   };
   return (
     <div className="space-y-1 p-2 text-xs" data-testid="rules-list">
-      {data.map((r) => (
+      {rows.map((r) => (
         <div key={r.id} className="rounded border border-slate-200 p-2">
           <div className="flex items-center gap-2"><b className="flex-1 truncate">{r.name}</b><span className="font-mono">{r.matched_count} obj.</span><button data-testid={`rule-delete-${r.id}`} onClick={() => remove(r)} className="text-red-600"><Trash2 className="h-3.5 w-3.5" /></button></div>
           <div className="text-slate-500">→ {byId[r.task_id]?.code} {byId[r.task_id]?.name}</div>
-          <div className="font-mono text-[10px] text-slate-400">{Object.entries(r.filters).filter(([, v]) => v && v.length).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join("|") : v}`).join(" · ")} · {fmtDT(r.created_at)}</div>
+          <div className="font-mono text-[10px] text-slate-400">{r.summary} · {fmtDT(r.created_at)}</div>
         </div>
       ))}
       {!data.length && <div className="p-2 text-slate-500">Aucune règle enregistrée.</div>}
@@ -60,13 +64,16 @@ function Rules({ pid, tasks }) {
 }
 
 function Unlinked({ elements, linksByGid, onSelect }) {
-  const un = elements.filter((e) => !linksByGid.has(e.global_id));
-  const byType = {};
-  un.forEach((e) => { (byType[e.ifc_type] = byType[e.ifc_type] || []).push(e.global_id); });
+  const { un, groups } = useMemo(() => {
+    const list = elements.filter((e) => !linksByGid.has(e.global_id));
+    const byType = {};
+    list.forEach((e) => { (byType[e.ifc_type] = byType[e.ifc_type] || []).push(e.global_id); });
+    return { un: list, groups: Object.entries(byType).sort((a, b) => b[1].length - a[1].length) };
+  }, [elements, linksByGid]);
   return (
     <div className="space-y-1 p-2 text-xs" data-testid="unlinked-list">
       <div className="px-1 pb-1 text-slate-600"><b data-testid="unlinked-count">{un.length}</b> objet(s) sur {elements.length} sans activité</div>
-      {Object.entries(byType).sort((a, b) => b[1].length - a[1].length).map(([t, g]) => (
+      {groups.map(([t, g]) => (
         <button key={t} data-testid={`unlinked-type-${t}`} onClick={() => onSelect(g)} className="flex w-full justify-between rounded border border-slate-200 px-2 py-1 hover:bg-amber-50"><span>{t}</span><span className="font-mono">{g.length}</span></button>
       ))}
     </div>
@@ -75,8 +82,8 @@ function Unlinked({ elements, linksByGid, onSelect }) {
 
 export default function SidePanel({ pid, modelId, versionId, tasks, elements, task, selected, linksByGid, linksByTask, simDate, today, canLink, onSelectGids, onTaskClick, tab, setTab }) {
   const qc = useQueryClient();
-  const sel = [...selected];
-  const inTask = task ? sel.filter((g) => (linksByGid.get(g) || []).includes(task.id)) : [];
+  const sel = useMemo(() => [...selected], [selected]);
+  const inTask = useMemo(() => (task ? sel.filter((g) => (linksByGid.get(g) || []).includes(task.id)) : []), [task, sel, linksByGid]);
   const act = async (remove) => {
     try {
       if (remove) {

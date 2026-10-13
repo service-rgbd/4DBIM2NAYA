@@ -24,7 +24,7 @@ export default function PropertiesPanel({ versionId, gid, onTaskClick }) {
       {Object.entries(groups).map(([pset, props]) => (
         <details key={pset} className="rounded border border-slate-200">
           <summary className="cursor-pointer bg-slate-50 px-2 py-1 font-semibold text-slate-700">{pset} <span className="font-normal text-slate-400">({props.length})</span></summary>
-          <table className="w-full"><tbody>{props.map((p, i) => <tr key={i} className="border-t border-slate-100"><td className="w-1/2 px-2 py-0.5 text-slate-500">{p.name}</td><td className="break-all px-2 py-0.5 font-mono">{String(p.value ?? "—")}</td></tr>)}</tbody></table>
+          <table className="w-full"><tbody>{props.map((p) => <tr key={`${p.name}-${String(p.value)}`} className="border-t border-slate-100"><td className="w-1/2 px-2 py-0.5 text-slate-500">{p.name}</td><td className="break-all px-2 py-0.5 font-mono">{String(p.value ?? "—")}</td></tr>)}</tbody></table>
         </details>
       ))}
     </div>

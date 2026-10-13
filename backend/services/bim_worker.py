@@ -12,13 +12,13 @@ logger = logging.getLogger("bim_worker")
 MAX_ATTEMPTS = int(os.environ.get("BIM_MAX_ATTEMPTS", "3"))
 
 
-async def resume_interrupted():
+async def resume_interrupted() -> None:
     r = await db.bim_versions.update_many({"status": "traitement"}, {"$set": {"status": "en_attente", "stage": "Reprise après interruption"}})
     if r.modified_count:
         logger.info("Reprise de %s traitement(s) IFC interrompu(s)", r.modified_count)
 
 
-async def _run_parse(raw, vid):
+async def _run_parse(raw: bytes, vid: str) -> dict:
     state = {"p": 5}
     loop = asyncio.get_running_loop()
     fut = loop.run_in_executor(None, partial(parse_ifc, raw, lambda p: state.__setitem__("p", p)))
@@ -28,7 +28,7 @@ async def _run_parse(raw, vid):
     return await fut
 
 
-async def process(job):
+async def process(job: dict) -> None:
     vid = job["id"]
     try:
         stream = await fs.open_download_stream(job["file_id"])
@@ -59,7 +59,7 @@ async def process(job):
             await audit(None, job["project_id"], "bim.import_failed", "bim_version", vid, f"Échec du traitement IFC : {str(e)[:200]}")
 
 
-async def apply_seed_rules(job):
+async def apply_seed_rules(job: dict) -> None:
     from services.linking import apply_rule
     project = await db.projects.find_one({"id": job["project_id"]})
     pending = (project or {}).get("pending_seed_rules") or []
@@ -72,7 +72,7 @@ async def apply_seed_rules(job):
     await db.projects.update_one({"id": job["project_id"]}, {"$unset": {"pending_seed_rules": ""}})
 
 
-async def worker_loop():
+async def worker_loop() -> None:
     await resume_interrupted()
     while True:
         try:
