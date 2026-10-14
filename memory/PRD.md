@@ -31,6 +31,7 @@ Données réelles persistées, permissions serveur, traçabilité, pas de faux t
 - compute_schedule découpé (passe avant / arrière), update_task : helper de clôture, annotations de type
 - Frontend : hooks Gantt (useGanttDrag, refs pour callbacks), IfcViewer (useIfcEngine/useEngineSync), ModelTree (StoreyNode/TypeNode), useMemo SidePanel/TaskSheet, suppression des eslint-disable
 - 39/39 tests backend OK après refactor
+- 2e passe : kpis/s_curve/dashboard extraits (dashboard_data), topo_order/compute_schedule découpés, décodage JWT et CPM sans variable ambiguë, contexte auth mémoïsé, Gantt (DependencyLayer, BaselineLayer), SidePanel (LinkActions), TaskSheet (SheetActions, TaskTabs), Bim4D (buildColorMap), correction réelle : tableaux `tasks`/`elements` recréés à chaque rendu
 
 ## Prioritized backlog
 - P0 : invitations & gestion d'équipe/rôles par projet (UI), export PDF du planning/4D

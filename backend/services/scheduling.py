@@ -61,13 +61,20 @@ class WorkCalendar:
         return self.index_of(b + timedelta(days=1)) - self.index_of(a)
 
 
-def topo_order(task_ids, deps):
+def _graph(task_ids: list, deps: list):
     indeg = {t: 0 for t in task_ids}
     succ = defaultdict(list)
     for d in deps:
-        if d["predecessor_id"] in indeg and d["successor_id"] in indeg:
-            succ[d["predecessor_id"]].append(d["successor_id"])
-            indeg[d["successor_id"]] += 1
+        a, b = d["predecessor_id"], d["successor_id"]
+        if a in indeg and b in indeg:
+            succ[a].append(b)
+            indeg[b] += 1
+    return indeg, succ
+
+
+def topo_order(task_ids: list, deps: list) -> list:
+    """Kahn's algorithm; raises CycleError listing the tasks involved in a cycle."""
+    indeg, succ = _graph(task_ids, deps)
     q = deque(t for t, n in indeg.items() if n == 0)
     order = []
     while q:
@@ -130,6 +137,19 @@ def _link_maps(deps: list, by_id: dict):
     return preds, succs
 
 
+def _task_result(cal: WorkCalendar, n: int, es: int, ef: int, lf: int, drivers: list, after_finish: bool) -> dict:
+    tf = (lf - n) - es
+    # a milestone reached at the end of a predecessor is dated on that predecessor's last working day
+    ms_day = cal.day(es - 1 if after_finish else es)
+    return {
+        "early_start": (cal.day(es) if n > 0 else ms_day).isoformat(),
+        "early_finish": (cal.day(ef - 1) if n > 0 else ms_day).isoformat(),
+        "total_float": tf,
+        "is_critical": tf <= 0,
+        "driven_by": [d["predecessor_id"] for d in drivers],
+    }
+
+
 def compute_schedule(tasks: list, deps: list, calendar: dict):
     """Forward pass (early dates), backward pass (late dates), then float and critical flag per task."""
     if not tasks:
@@ -141,19 +161,7 @@ def compute_schedule(tasks: list, deps: list, calendar: dict):
     dur = {i: (0 if t.get("is_milestone") else int(t["duration"])) for i, t in by_id.items()}
     ES, EF, drivers, after_finish = _forward_pass(order, by_id, preds, dur, cal)
     LF = _backward_pass(order, succs, dur, max(EF.values()))
-    result = {}
-    for tid in order:
-        n = dur[tid]
-        tf = (LF[tid] - n) - ES[tid]
-        # a milestone reached at the end of a predecessor is dated on that predecessor's last working day
-        ms_day = cal.day(ES[tid] - 1 if after_finish[tid] else ES[tid])
-        result[tid] = {
-            "early_start": (cal.day(ES[tid]) if n > 0 else ms_day).isoformat(),
-            "early_finish": (cal.day(EF[tid] - 1) if n > 0 else ms_day).isoformat(),
-            "total_float": tf,
-            "is_critical": tf <= 0,
-            "driven_by": [d["predecessor_id"] for d in drivers[tid]],
-        }
+    result = {tid: _task_result(cal, dur[tid], ES[tid], EF[tid], LF[tid], drivers[tid], after_finish[tid]) for tid in order}
     return result, max(r["early_finish"] for r in result.values())
 
 

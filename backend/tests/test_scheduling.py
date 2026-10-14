@@ -11,11 +11,11 @@ from services.ifc_parser import parse_ifc, parse_args  # noqa: E402
 CAL = {"working_days": [0, 1, 2, 3, 4], "exceptions": [{"date": "2026-11-11", "type": "ferie"}]}
 
 
-def t(i, dur, start="2026-11-02", ms=False):
+def t(i: str, dur: int, start: str = "2026-11-02", ms: bool = False) -> dict:
     return {"id": i, "start": start, "duration": dur, "is_milestone": ms}
 
 
-def d(a, b, typ="FS", lag=0):
+def d(a: str, b: str, typ: str = "FS", lag: int = 0) -> dict:
     return {"predecessor_id": a, "successor_id": b, "type": typ, "lag": lag}
 
 

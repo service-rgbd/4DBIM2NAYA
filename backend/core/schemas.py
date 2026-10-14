@@ -54,7 +54,7 @@ class CalendarIn(BaseModel):
 
     @field_validator("working_days")
     @classmethod
-    def _wd(cls, v):
+    def _wd(cls, v: List[int]) -> List[int]:
         if any(d < 0 or d > 6 for d in v):
             raise ValueError("Jours ouvrés invalides (0=lundi … 6=dimanche)")
         return sorted(set(v))

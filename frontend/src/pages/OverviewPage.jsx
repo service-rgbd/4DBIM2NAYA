@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -46,10 +46,14 @@ const List = ({ title, items, empty, testid }) => (
   </div>
 );
 
+const TICK = { fontSize: 10 };
+const DOMAIN = [0, 100];
+
 export default function OverviewPage() {
   const { pid } = useParams();
   const { data: p } = useProject(pid);
   const { data: d, isLoading, error, refetch } = useDashboard(pid);
+  const late = useMemo(() => (d ? [...d.delayed, ...d.blocked] : []), [d]);
   if (isLoading || !p) return <Loading />;
   if (error) return <ErrorState message={errMsg(error)} onRetry={refetch} />;
   const k = d.kpis;
@@ -75,8 +79,8 @@ export default function OverviewPage() {
             <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <LineChart data={d.s_curve}>
                 <CartesianGrid stroke="#e2e8f0" strokeDasharray="3 3" />
-                <XAxis dataKey="date" tickFormatter={fmtShort} tick={{ fontSize: 10 }} />
-                <YAxis unit="%" tick={{ fontSize: 10 }} domain={[0, 100]} />
+                <XAxis dataKey="date" tickFormatter={fmtShort} tick={TICK} />
+                <YAxis unit="%" tick={TICK} domain={DOMAIN} />
                 <Tooltip labelFormatter={fmtD} />
                 <Legend />
                 <Line type="monotone" dataKey="prevu" name="Prévu" stroke="#94a3b8" strokeWidth={2} dot={false} />
@@ -85,7 +89,7 @@ export default function OverviewPage() {
             </ResponsiveContainer>
           </div>
         </div>
-        <List testid="list-delayed" title="Activités en retard" items={[...d.delayed, ...d.blocked]} empty="Aucun retard détecté." />
+        <List testid="list-delayed" title="Activités en retard" items={late} empty="Aucun retard détecté." />
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-2">
         <List testid="list-upcoming" title="Prochaines échéances" items={d.upcoming} empty="Aucune échéance." />

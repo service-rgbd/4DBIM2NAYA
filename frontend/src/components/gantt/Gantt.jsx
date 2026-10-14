@@ -135,6 +135,37 @@ function useScrollToDate(scroller, range, simDate, dw, compact) {
   }, [scroller, simDate, range, dw, compact]);
 }
 
+const BaselineLayer = ({ tasks, baseline, origin, dw, rh }) => tasks.map((t, i) => {
+  const b = baseline.get(t.id);
+  if (!b?.start) return null;
+  return <div key={`b${t.id}`} data-testid={`gantt-baseline-${t.code}`} className="absolute rounded-sm bg-slate-400/70" style={{ left: diffDays(origin, b.start) * dw, width: Math.max((diffDays(b.start, b.finish) + 1) * dw, 3), top: i * rh + rh - 8, height: 4 }} />;
+});
+
+function DependencyLayer({ tasks, deps, pos, dw, width, height, showCritical }) {
+  const critical = useMemo(() => new Set(tasks.filter((t) => t.is_critical).map((t) => t.id)), [tasks]);
+  return (
+    <svg className="pointer-events-none absolute left-0 top-0" width={width} height={height}>
+      <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#64748b" /></marker></defs>
+      {deps.map((d) => {
+        const path = depPath(d, pos, dw);
+        const crit = showCritical && critical.has(d.predecessor_id) && critical.has(d.successor_id);
+        return path && <path key={d.id} d={path} fill="none" stroke={crit ? "#dc2626" : "#94a3b8"} strokeWidth={crit ? 1.6 : 1.2} markerEnd="url(#arr)" />;
+      })}
+    </svg>
+  );
+}
+
+function layout(tasks, origin, dw, rh) {
+  const pos = {};
+  tasks.forEach((t, i) => {
+    const w = t.is_milestone ? 0 : (diffDays(t.early_start, t.early_finish) + 1) * dw;
+    pos[t.id] = { x: diffDays(origin, t.early_start) * dw, w, y: i * rh + rh / 2 };
+  });
+  return pos;
+}
+
+const nonWorkingDays = (origin, days, calendar) => Array.from({ length: days }, (_, i) => i).filter((i) => !isWorking(addDays(origin, i), calendar));
+
 export default function Gantt({ tasks, deps, zoom = "week", selectedId, highlightIds, onSelect, onDragEnd, canEdit, baseline, simDate, today, showCritical, rowHeight = 34, compact, calendar }) {
   const range = useRange(tasks, baseline, simDate);
   const scroller = useRef(null);
@@ -142,17 +173,12 @@ export default function Gantt({ tasks, deps, zoom = "week", selectedId, highligh
   const rh = rowHeight;
   const { drag, onDown } = useGanttDrag(dw, onSelect, onDragEnd, calendar);
   useScrollToDate(scroller, range, simDate, dw, compact);
+  const pos = useMemo(() => (range ? layout(tasks, range.origin, dw, rh) : {}), [tasks, range, dw, rh]);
+  const nonWorking = useMemo(() => (range && zoom !== "month" ? nonWorkingDays(range.origin, range.days, calendar) : []), [range, zoom, calendar]);
 
   if (!range) return <div className="p-6 text-sm text-slate-500">Aucune activité à afficher.</div>;
   const { origin, days } = range;
-  const pos = {};
-  tasks.forEach((t, i) => {
-    const x = diffDays(origin, t.early_start) * dw;
-    const w = t.is_milestone ? 0 : (diffDays(t.early_start, t.early_finish) + 1) * dw;
-    pos[t.id] = { x, w, y: i * rh + rh / 2 };
-  });
   const height = tasks.length * rh;
-  const nonWorking = zoom !== "month" ? Array.from({ length: days }, (_, i) => addDays(origin, i)).map((d, i) => (!isWorking(d, calendar) ? i : null)).filter((v) => v !== null) : [];
 
   return (
     <div ref={scroller} className="relative h-full overflow-auto scroll-thin bg-white" data-testid="gantt-chart">
@@ -163,19 +189,8 @@ export default function Gantt({ tasks, deps, zoom = "week", selectedId, highligh
           <div className="relative" style={{ height }}>
             {nonWorking.map((i) => <div key={i} className="absolute top-0 bg-slate-100/70" style={{ left: i * dw, width: dw, height }} />)}
             {tasks.map((t, i) => <div key={t.id} className={`absolute left-0 w-full border-b border-slate-100 ${highlightIds?.has(t.id) ? "bg-amber-50/60" : ""}`} style={{ top: i * rh, height: rh }} />)}
-            {baseline && tasks.map((t, i) => {
-              const b = baseline.get(t.id);
-              if (!b?.start) return null;
-              return <div key={`b${t.id}`} data-testid={`gantt-baseline-${t.code}`} className="absolute rounded-sm bg-slate-400/70" style={{ left: diffDays(origin, b.start) * dw, width: Math.max((diffDays(b.start, b.finish) + 1) * dw, 3), top: i * rh + rh - 8, height: 4 }} />;
-            })}
-            <svg className="pointer-events-none absolute left-0 top-0" width={days * dw} height={height}>
-              <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#64748b" /></marker></defs>
-              {deps.map((d) => {
-                const path = depPath(d, pos, dw);
-                const crit = showCritical && tasks.find((t) => t.id === d.predecessor_id)?.is_critical && tasks.find((t) => t.id === d.successor_id)?.is_critical;
-                return path && <path key={d.id} d={path} fill="none" stroke={crit ? "#dc2626" : "#94a3b8"} strokeWidth={crit ? 1.6 : 1.2} markerEnd="url(#arr)" />;
-              })}
-            </svg>
+            {baseline && <BaselineLayer tasks={tasks} baseline={baseline} origin={origin} dw={dw} rh={rh} />}
+            <DependencyLayer tasks={tasks} deps={deps} pos={pos} dw={dw} width={days * dw} height={height} showCritical={showCritical} />
             {tasks.map((t, i) => <Bar key={t.id} t={t} x={pos[t.id].x} w={pos[t.id].w} row={i} rh={rh} selected={selectedId === t.id} critical={showCritical && t.is_critical} canEdit={canEdit} onDown={onDown} drag={drag} />)}
             {!canEdit && tasks.map((t, i) => <div key={`c${t.id}`} className="absolute cursor-pointer" style={{ left: pos[t.id].x - 6, width: pos[t.id].w + 12, top: i * rh, height: rh }} onClick={() => onSelect?.(t)} />)}
             {today && <div className="absolute top-0 border-l-2 border-dashed border-red-500" style={{ left: diffDays(origin, today) * dw + dw / 2, height }} title="Aujourd'hui" />}

@@ -35,7 +35,7 @@ function useIfcEngine(versionId, box, mapsRef, pickRef) {
   return [engine, state];
 }
 
-/** Pushes colours, selection and visibility filters into the engine whenever they change. */
+/** Pushes colours and selection, then visibility filters, into the engine whenever they change. */
 function useEngineSync(engine, ready, maps, { colorMap, selectedGids, isVisible, isolated }) {
   useEffect(() => {
     const eng = engine.current;
@@ -44,10 +44,16 @@ function useEngineSync(engine, ready, maps, { colorMap, selectedGids, isVisible,
     eng.overrides = new Map();
     if (colorMap) colorMap.forEach((v, gid) => { const e = maps.g2e.get(gid); if (e != null) eng.overrides.set(e, v); });
     eng.selected = new Set([...(selectedGids || [])].map((g) => maps.g2e.get(g)).filter((v) => v != null));
+    eng.refresh();
+  }, [engine, ready, maps, colorMap, selectedGids]);
+
+  useEffect(() => {
+    const eng = engine.current;
+    if (!eng || !ready) return;
     eng.filter = isVisible ? (eid) => { const g = maps.e2g.get(eid); return !g || isVisible(maps.g2el.get(g)); } : null;
     if (!isolated) eng.isolated = null;
     eng.refresh();
-  }, [engine, colorMap, selectedGids, isVisible, maps, ready, isolated]);
+  }, [engine, ready, maps, isVisible, isolated]);
 }
 
 /** Real IFC geometry viewer (web-ifc + Three.js). Business identity = IFC GlobalId; expressID only maps meshes. */

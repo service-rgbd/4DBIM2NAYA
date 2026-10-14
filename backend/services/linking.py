@@ -1,11 +1,12 @@
 import re
+from typing import Optional
 from fastapi import HTTPException
 from pymongo.errors import BulkWriteError
 from core.db import db, new_id, now_iso
 from core.audit import audit
 
 
-def _variants(v: str):
+def _variants(v: str) -> list:
     out = [v]
     lv = v.strip().lower()
     if lv in ("true", "vrai", "oui"):
@@ -20,7 +21,7 @@ def _variants(v: str):
     return out
 
 
-def rule_query(version_id, f: dict):
+def rule_query(version_id: str, f: dict) -> dict:
     q = {"version_id": version_id}
     if f.get("ifc_types"):
         q["ifc_type"] = {"$in": f["ifc_types"]}
@@ -38,7 +39,7 @@ def rule_query(version_id, f: dict):
     return q
 
 
-async def current_version(model_id, project_id):
+async def current_version(model_id: str, project_id: str):
     model = await db.bim_models.find_one({"id": model_id, "project_id": project_id, "deleted_at": None})
     if not model:
         raise HTTPException(status_code=404, detail="Maquette introuvable dans ce projet")
@@ -47,7 +48,7 @@ async def current_version(model_id, project_id):
     return model, model["current_version_id"]
 
 
-async def create_links(user, project_id, task_id, model_id, global_ids, rule_id=None):
+async def create_links(user: Optional[dict], project_id: str, task_id: str, model_id: str, global_ids: list, rule_id: Optional[str] = None) -> int:
     docs = [{"id": new_id(), "project_id": project_id, "task_id": task_id, "model_id": model_id, "global_id": g,
              "rule_id": rule_id, "created_by": user["email"] if user else "système", "created_at": now_iso()} for g in dict.fromkeys(global_ids)]
     if not docs:
@@ -59,7 +60,7 @@ async def create_links(user, project_id, task_id, model_id, global_ids, rule_id=
         return e.details.get("nInserted", 0)
 
 
-async def apply_rule(user, project_id, task_id, model_id, name, filters: dict):
+async def apply_rule(user: Optional[dict], project_id: str, task_id: str, model_id: str, name: str, filters: dict):
     _, vid = await current_version(model_id, project_id)
     gids = [e["global_id"] async for e in db.bim_elements.find(rule_query(vid, filters), {"global_id": 1, "_id": 0})]
     rule = {"id": new_id(), "project_id": project_id, "task_id": task_id, "model_id": model_id, "name": name,

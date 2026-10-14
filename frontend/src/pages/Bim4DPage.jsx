@@ -14,14 +14,38 @@ import { PHASE_COLORS, computeElementPhases } from "@/lib/sim4d";
 function useLinkMaps(links) {
   return useMemo(() => {
     const byGid = new Map(), byTask = new Map();
-    (links || []).forEach((l) => {
-      if (!byGid.has(l.global_id)) byGid.set(l.global_id, []);
-      byGid.get(l.global_id).push(l.task_id);
-      if (!byTask.has(l.task_id)) byTask.set(l.task_id, []);
-      byTask.get(l.task_id).push(l.global_id);
+    (links || []).forEach((link) => {
+      if (!byGid.has(link.global_id)) byGid.set(link.global_id, []);
+      byGid.get(link.global_id).push(link.task_id);
+      if (!byTask.has(link.task_id)) byTask.set(link.task_id, []);
+      byTask.get(link.task_id).push(link.global_id);
     });
     return { byGid, byTask };
   }, [links]);
+}
+
+function phaseStyle(phase, ghost) {
+  if (phase === "a_realiser") return { hex: PHASE_COLORS.a_realiser, ghost: ghost === "ghost", hide: ghost === "hide", opacity: 0.5 };
+  if (phase === "hors_filtre") return { ghost: true };
+  if (phase === "non_planifie") return { hex: 0xe2e8f0, opacity: 0.35 };
+  return { hex: PHASE_COLORS[phase] };
+}
+
+/** Viewer colour map + per-phase counts for the legend. */
+function buildColorMap(elements, phases, ghost) {
+  const colorMap = new Map(), counts = {};
+  elements.forEach((el) => {
+    const phase = phases.get(el.global_id) || "non_planifie";
+    counts[phase] = (counts[phase] || 0) + 1;
+    colorMap.set(el.global_id, phaseStyle(phase, ghost));
+  });
+  return { colorMap, counts };
+}
+
+function dateRange(tasks) {
+  const starts = tasks.map((task) => task.early_start).filter(Boolean).sort();
+  const ends = tasks.map((task) => task.early_finish).filter(Boolean).sort();
+  return starts.length ? { start: addDays(starts[0], -1), end: addDays(ends[ends.length - 1], 1) } : null;
 }
 
 export default function Bim4DPage() {
@@ -32,18 +56,16 @@ export default function Bim4DPage() {
   const [modelId, setModelId] = useState("");
   const model = models.find((m) => m.id === modelId) || models.find((m) => m.current_version_id);
   const vid = model?.current_version_id;
-  const { data: elements = [] } = useElements(vid);
+  const { data: elementsData } = useElements(vid);
+  const elements = useMemo(() => elementsData || [], [elementsData]);
   const { data: links } = useLinks(pid, model?.id);
   const { byGid, byTask } = useLinkMaps(links);
-  const tasks = plan?.tasks || [];
+  const tasks = useMemo(() => plan?.tasks || [], [plan]);
   const { filtered, ui, active } = useTaskFilters(tasks);
-  const range = useMemo(() => {
-    const s = tasks.map((t) => t.early_start).filter(Boolean).sort();
-    const e = tasks.map((t) => t.early_finish).filter(Boolean).sort();
-    return s.length ? { start: addDays(s[0], -1), end: addDays(e[e.length - 1], 1) } : null;
-  }, [tasks]);
+  const range = useMemo(() => dateRange(tasks), [tasks]);
+  const today = plan?.today;
   const [simDate, setSimDate] = useState(null);
-  const date = simDate || (plan ? (range && plan.today > range.end ? range.end : plan.today) : null);
+  const date = simDate || (today ? (range && today > range.end ? range.end : today) : null);
   const [playing, setPlaying] = useState(false);
   const [step, setStep] = useState("semaine");
   const [speed, setSpeed] = useState(1);
@@ -55,20 +77,9 @@ export default function Bim4DPage() {
   const [tab, setTab] = useState("activity");
 
   const visibleIds = useMemo(() => (active ? new Set(filtered.map((t) => t.id)) : null), [filtered, active]);
-  const phases = useMemo(() => (date ? computeElementPhases(tasks, byGid, date, mode, plan?.today, visibleIds) : new Map()), [tasks, byGid, date, mode, plan?.today, visibleIds]);
-  const { colorMap, counts } = useMemo(() => {
-    const cm = new Map(), c = {};
-    elements.forEach((e) => {
-      const p = phases.get(e.global_id) || "non_planifie";
-      c[p] = (c[p] || 0) + 1;
-      if (p === "a_realiser") cm.set(e.global_id, { hex: PHASE_COLORS.a_realiser, ghost: ghost === "ghost", hide: ghost === "hide", opacity: 0.5 });
-      else if (p === "hors_filtre") cm.set(e.global_id, { ghost: true });
-      else if (p === "non_planifie") cm.set(e.global_id, { hex: 0xe2e8f0, opacity: 0.35 });
-      else cm.set(e.global_id, { hex: PHASE_COLORS[p] });
-    });
-    return { colorMap: cm, counts: c };
-  }, [elements, phases, ghost]);
-  const highlightIds = useMemo(() => new Set([...selected].flatMap((g) => byGid.get(g) || [])), [selected, byGid]);
+  const phases = useMemo(() => (date ? computeElementPhases(tasks, byGid, date, mode, today, visibleIds) : new Map()), [tasks, byGid, date, mode, today, visibleIds]);
+  const { colorMap, counts } = useMemo(() => buildColorMap(elements, phases, ghost), [elements, phases, ghost]);
+  const highlightIds = useMemo(() => new Set([...selected].flatMap((gid) => byGid.get(gid) || [])), [selected, byGid]);
   const task = tasks.find((t) => t.id === taskId);
 
   const selectTask = (t) => {
@@ -80,9 +91,14 @@ export default function Bim4DPage() {
   };
   const selectGids = (g) => { setSelected(new Set(g)); if (g.length) setFocus({ gids: g, k: Date.now() }); };
   const pick = useCallback((gid, add) => {
-    setSelected((s) => { if (!gid) return new Set(); const n = new Set(add ? s : []); if (add && n.has(gid)) n.delete(gid); else n.add(gid); return n; });
+    setSelected((prev) => {
+      if (!gid) return new Set();
+      const next = new Set(add ? prev : []);
+      if (add && next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
     if (gid) setTab("object");
-  }, []);
+  }, [setSelected, setTab]);
 
   if (isLoading) return <Loading />;
   if (error) return <ErrorState message={errMsg(error)} onRetry={refetch} />;

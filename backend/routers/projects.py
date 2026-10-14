@@ -1,11 +1,10 @@
-from datetime import date
 from fastapi import APIRouter, Depends, HTTPException
 from pymongo.errors import DuplicateKeyError
 from core.db import db, new_id, now_iso, today, clean
 from core.audit import audit, diff
 from core.schemas import ProjectIn, ProjectPatch, StatusChangeIn, CalendarIn
 from core.security import get_current_user, authorize, project_role, ROLE_LABELS
-from services.planning import recompute, kpis, s_curve, with_health
+from services.planning import recompute, kpis, dashboard_data
 
 router = APIRouter(tags=["projects"])
 
@@ -110,28 +109,14 @@ async def dashboard(pid: str, user=Depends(get_current_user)):
     p = await authorize(user, pid, "read")
     tasks = await db.tasks.find({"project_id": pid, "deleted_at": None}, {"_id": 0}).sort("sort_order", 1).to_list(5000)
     records = await db.progress_records.find({"project_id": pid}, {"_id": 0}).to_list(50000)
-    now = today()
-    k, cal = kpis(tasks, records, p.get("calendar"), now)
-    curve = []
-    starts = [t["early_start"] for t in tasks if t.get("early_start")]
-    if starts:
-        curve = s_curve(tasks, records, cal, date.fromisoformat(min(starts)), date.fromisoformat(p.get("computed_finish") or max(starts)))
-    for t in tasks:
-        with_health(t, now)
     linked = set(await db.links.distinct("task_id", {"project_id": pid}))
-    milestones = [t for t in tasks if t.get("is_milestone")]
-    upcoming = sorted([t for t in tasks if t["health"] not in ("termine", "annule") and t["early_finish"] >= now.isoformat()], key=lambda t: t["early_finish"])[:6]
-    return {
-        "today": now.isoformat(), "kpis": k, "s_curve": curve, "computed_finish": p.get("computed_finish"),
-        "delayed": [t for t in tasks if t["health"] == "en_retard"][:20],
-        "blocked": [t for t in tasks if t["health"] == "bloque"],
-        "milestones": milestones, "upcoming": upcoming,
-        "bim": {
-            "models": await db.bim_models.count_documents({"project_id": pid, "deleted_at": None}),
-            "links": await db.links.count_documents({"project_id": pid}),
-            "tasks_linked": len(linked), "tasks_unlinked": len([t for t in tasks if t["id"] not in linked and not t.get("is_milestone")]),
-        },
+    data = dashboard_data(p, tasks, records, linked, today())
+    data["bim"] = {
+        "models": await db.bim_models.count_documents({"project_id": pid, "deleted_at": None}),
+        "links": await db.links.count_documents({"project_id": pid}),
+        "tasks_linked": data.pop("tasks_linked"), "tasks_unlinked": data.pop("tasks_unlinked"),
     }
+    return data
 
 
 @router.get("/projects/{pid}/members")

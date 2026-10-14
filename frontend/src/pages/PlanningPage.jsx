@@ -55,7 +55,7 @@ export default function PlanningPage() {
   const [baselineId, setBaselineId] = useState("");
   const [sheet, setSheet] = useState(null);
   const [move, setMove] = useState(null);
-  const tasks = data?.tasks || [];
+  const tasks = useMemo(() => data?.tasks || [], [data]);
   const { filtered, ui } = useTaskFilters(tasks);
   const role = project?.my_role;
   const editable = canWrite(role) && project?.status !== "archive";
@@ -64,7 +64,7 @@ export default function PlanningPage() {
   useEffect(() => {
     const tid = sp.get("task");
     if (tid && hasTasks) { setSheet(tid); setSp({}, { replace: true }); }
-  }, [sp, setSp, hasTasks]);
+  }, [sp, setSp, setSheet, hasTasks]);
 
   const baseline = useMemo(() => {
     const b = baselines.find((x) => x.id === baselineId);

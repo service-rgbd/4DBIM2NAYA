@@ -53,7 +53,7 @@ RULES = [
 ]
 
 
-async def _user(email, password, name, role):
+async def _user(email: str, password: str, name: str, role: str) -> dict:
     existing = await db.users.find_one({"email": email})
     if not existing:
         u = {"id": new_id(), "email": email, "name": name, "role": role, "active": True, "password_hash": hash_password(password), "created_at": now_iso()}
@@ -64,7 +64,7 @@ async def _user(email, password, name, role):
     return existing
 
 
-async def seed():
+async def seed() -> None:
     admin = await _user(os.environ["ADMIN_EMAIL"].lower(), os.environ["ADMIN_PASSWORD"], "Administrateur plateforme", "admin_plateforme")
     viewer = await _user(os.environ["VIEWER_EMAIL"].lower(), os.environ["VIEWER_PASSWORD"], "Observateur (lecture seule)", "utilisateur")
     if await db.projects.find_one({"reference": "DEMO-DUPLEX"}):

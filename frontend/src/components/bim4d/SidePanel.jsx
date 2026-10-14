@@ -80,10 +80,8 @@ function Unlinked({ elements, linksByGid, onSelect }) {
   );
 }
 
-export default function SidePanel({ pid, modelId, versionId, tasks, elements, task, selected, linksByGid, linksByTask, simDate, today, canLink, onSelectGids, onTaskClick, tab, setTab }) {
+function LinkActions({ pid, modelId, versionId, tasks, task, sel, inTask, onSelectGids }) {
   const qc = useQueryClient();
-  const sel = useMemo(() => [...selected], [selected]);
-  const inTask = useMemo(() => (task ? sel.filter((g) => (linksByGid.get(g) || []).includes(task.id)) : []), [task, sel, linksByGid]);
   const act = async (remove) => {
     try {
       if (remove) {
@@ -98,17 +96,23 @@ export default function SidePanel({ pid, modelId, versionId, tasks, elements, ta
     } catch (e) { toast.error(errMsg(e)); }
   };
   return (
+    <div className="space-y-2 border-b p-2" data-testid="link-actions">
+      <div className="text-[11px] text-slate-600"><b data-testid="selection-count">{sel.length}</b> objet(s) sélectionné(s) · activité : <b data-testid="selected-task-code">{task ? task.code : "aucune"}</b></div>
+      <div className="flex flex-wrap gap-1.5">
+        <Button data-testid="link-selection-btn" size="sm" disabled={!task || !sel.length || task.is_milestone} onClick={() => act(false)} className="bg-blue-700 hover:bg-blue-800"><Link2 className="mr-1 h-3.5 w-3.5" />Lier</Button>
+        <Button data-testid="unlink-selection-btn" size="sm" variant="outline" disabled={!inTask.length} onClick={() => act(true)}><Link2Off className="mr-1 h-3.5 w-3.5" />Délier ({inTask.length})</Button>
+        <RuleDialog pid={pid} modelId={modelId} versionId={versionId} tasks={tasks} defaultTaskId={task?.id} onPreviewSelect={onSelectGids} />
+      </div>
+    </div>
+  );
+}
+
+export default function SidePanel({ pid, modelId, versionId, tasks, elements, task, selected, linksByGid, linksByTask, simDate, today, canLink, onSelectGids, onTaskClick, tab, setTab }) {
+  const sel = useMemo(() => [...selected], [selected]);
+  const inTask = useMemo(() => (task ? sel.filter((g) => (linksByGid.get(g) || []).includes(task.id)) : []), [task, sel, linksByGid]);
+  return (
     <div className="flex h-full flex-col bg-white">
-      {canLink && (
-        <div className="space-y-2 border-b p-2" data-testid="link-actions">
-          <div className="text-[11px] text-slate-600"><b data-testid="selection-count">{sel.length}</b> objet(s) sélectionné(s) · activité : <b data-testid="selected-task-code">{task ? task.code : "aucune"}</b></div>
-          <div className="flex flex-wrap gap-1.5">
-            <Button data-testid="link-selection-btn" size="sm" disabled={!task || !sel.length || task.is_milestone} onClick={() => act(false)} className="bg-blue-700 hover:bg-blue-800"><Link2 className="mr-1 h-3.5 w-3.5" />Lier</Button>
-            <Button data-testid="unlink-selection-btn" size="sm" variant="outline" disabled={!inTask.length} onClick={() => act(true)}><Link2Off className="mr-1 h-3.5 w-3.5" />Délier ({inTask.length})</Button>
-            <RuleDialog pid={pid} modelId={modelId} versionId={versionId} tasks={tasks} defaultTaskId={task?.id} onPreviewSelect={onSelectGids} />
-          </div>
-        </div>
-      )}
+      {canLink && <LinkActions pid={pid} modelId={modelId} versionId={versionId} tasks={tasks} task={task} sel={sel} inTask={inTask} onSelectGids={onSelectGids} />}
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="m-2 grid grid-cols-4">
           <TabsTrigger value="activity" data-testid="panel-tab-activity" className="text-xs">Activité</TabsTrigger>

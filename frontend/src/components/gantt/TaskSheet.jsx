@@ -121,8 +121,8 @@ function DepsTab({ task, pid, tasks, deps, canEdit }) {
   const qc = useQueryClient();
   const [f, setF] = useState({ predecessor_id: "", type: "FS", lag: 0 });
   const byId = useMemo(() => Object.fromEntries(tasks.map((t) => [t.id, t])), [tasks]);
-  const mine = useMemo(() => deps.filter((d) => d.successor_id === task.id || d.predecessor_id === task.id), [deps, task.id]);
-  const candidates = useMemo(() => tasks.filter((t) => t.id !== task.id), [tasks, task.id]);
+  const mine = useMemo(() => deps.filter((d) => d.successor_id === task.id || d.predecessor_id === task.id), [deps, task]);
+  const candidates = useMemo(() => tasks.filter((t) => t.id !== task.id), [tasks, task]);
   const add = async (e) => {
     e.preventDefault();
     try {
@@ -181,10 +181,18 @@ function HistoryTab({ task }) {
   );
 }
 
-export default function TaskSheet({ open, onClose, task, pid, tasks, deps, role }) {
+const SheetSummary = ({ task }) => (
+  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+    <HealthBadge value={task.health} testid="task-sheet-health" />
+    <span className="font-mono">{fmtD(task.early_start)} → {fmtD(task.early_finish)}</span>
+    <span>Marge : {task.total_float} j</span>
+    {task.is_critical && <span className="font-semibold text-red-600">Chemin critique</span>}
+    <span>{task.link_count || 0} objet(s) BIM</span>
+  </div>
+);
+
+function SheetActions({ task, pid, onClose }) {
   const qc = useQueryClient();
-  const canEdit = ["admin_plateforme", "chef_projet", "bim_manager", "conducteur_travaux"].includes(role);
-  const canProgress = canEdit || role === "sous_traitant";
   const action = async (kind) => {
     try {
       if (kind === "dup") { await post(`/tasks/${task.id}/duplicate`); toast.success("Activité dupliquée"); }
@@ -193,32 +201,40 @@ export default function TaskSheet({ open, onClose, task, pid, tasks, deps, role 
     } catch (e) { toast.error(errMsg(e)); }
   };
   return (
+    <div className="mt-3 flex gap-2">
+      <Button data-testid="task-duplicate-btn" size="sm" variant="outline" onClick={() => action("dup")}><Copy className="mr-1 h-3.5 w-3.5" />Dupliquer</Button>
+      <Button data-testid="task-delete-btn" size="sm" variant="outline" className="text-red-600" onClick={() => action("del")}><Trash2 className="mr-1 h-3.5 w-3.5" />Supprimer</Button>
+    </div>
+  );
+}
+
+const TaskTabs = ({ task, pid, tasks, deps, canEdit, canProgress }) => (
+  <Tabs defaultValue="details" className="mt-4">
+    <TabsList className="grid w-full grid-cols-4">
+      <TabsTrigger value="details" data-testid="task-tab-details">Détails</TabsTrigger>
+      <TabsTrigger value="progress" data-testid="task-tab-progress">Avancement</TabsTrigger>
+      <TabsTrigger value="deps" data-testid="task-tab-deps">Liens</TabsTrigger>
+      <TabsTrigger value="history" data-testid="task-tab-history">Historique</TabsTrigger>
+    </TabsList>
+    <TabsContent value="details">{canEdit ? <DetailsForm key={task.version} task={task} pid={pid} /> : <div className="text-sm text-slate-500">Lecture seule pour votre rôle.</div>}</TabsContent>
+    <TabsContent value="progress"><ProgressTab task={task} pid={pid} canProgress={canProgress} /></TabsContent>
+    <TabsContent value="deps"><DepsTab task={task} pid={pid} tasks={tasks} deps={deps} canEdit={canEdit} /></TabsContent>
+    <TabsContent value="history"><HistoryTab task={task} /></TabsContent>
+  </Tabs>
+);
+
+export default function TaskSheet({ open, onClose, task, pid, tasks, deps, role }) {
+  const canEdit = ["admin_plateforme", "chef_projet", "bim_manager", "conducteur_travaux"].includes(role);
+  const canProgress = canEdit || role === "sous_traitant";
+  return (
     <Sheet open={open} onOpenChange={(o) => !o && onClose()}>
       <SheetContent className="w-full overflow-y-auto sm:max-w-lg" data-testid="task-sheet">
         <SheetHeader>
           <SheetTitle className="font-heading">{task ? `${task.code} · ${task.name}` : "Nouvelle activité"}</SheetTitle>
-          {task && <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500"><HealthBadge value={task.health} testid="task-sheet-health" /><span className="font-mono">{fmtD(task.early_start)} → {fmtD(task.early_finish)}</span><span>Marge : {task.total_float} j</span>{task.is_critical && <span className="font-semibold text-red-600">Chemin critique</span>}<span>{task.link_count || 0} objet(s) BIM</span></div>}
+          {task && <SheetSummary task={task} />}
         </SheetHeader>
-        {task && canEdit && (
-          <div className="mt-3 flex gap-2">
-            <Button data-testid="task-duplicate-btn" size="sm" variant="outline" onClick={() => action("dup")}><Copy className="mr-1 h-3.5 w-3.5" />Dupliquer</Button>
-            <Button data-testid="task-delete-btn" size="sm" variant="outline" className="text-red-600" onClick={() => action("del")}><Trash2 className="mr-1 h-3.5 w-3.5" />Supprimer</Button>
-          </div>
-        )}
-        {!task ? <div className="mt-4"><DetailsForm pid={pid} onDone={onClose} /></div> : (
-          <Tabs defaultValue="details" className="mt-4">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="details" data-testid="task-tab-details">Détails</TabsTrigger>
-              <TabsTrigger value="progress" data-testid="task-tab-progress">Avancement</TabsTrigger>
-              <TabsTrigger value="deps" data-testid="task-tab-deps">Liens</TabsTrigger>
-              <TabsTrigger value="history" data-testid="task-tab-history">Historique</TabsTrigger>
-            </TabsList>
-            <TabsContent value="details">{canEdit ? <DetailsForm key={task.version} task={task} pid={pid} /> : <div className="text-sm text-slate-500">Lecture seule pour votre rôle.</div>}</TabsContent>
-            <TabsContent value="progress"><ProgressTab task={task} pid={pid} canProgress={canProgress} /></TabsContent>
-            <TabsContent value="deps"><DepsTab task={task} pid={pid} tasks={tasks} deps={deps} canEdit={canEdit} /></TabsContent>
-            <TabsContent value="history"><HistoryTab task={task} /></TabsContent>
-          </Tabs>
-        )}
+        {task && canEdit && <SheetActions task={task} pid={pid} onClose={onClose} />}
+        {task ? <TaskTabs task={task} pid={pid} tasks={tasks} deps={deps} canEdit={canEdit} canProgress={canProgress} /> : <div className="mt-4"><DetailsForm pid={pid} onDone={onClose} /></div>}
       </SheetContent>
     </Sheet>
   );
