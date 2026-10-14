@@ -30,6 +30,8 @@ export class IfcEngine {
     this.known = null;
     this.ghostUnplanned = true;
     this.onPick = () => {};
+    this.markers = [];
+    this._v = new THREE.Vector3();
     const w = container.clientWidth || 800, h = container.clientHeight || 500;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0f172a);
@@ -57,7 +59,7 @@ export class IfcEngine {
     el.addEventListener("pointerup", (e) => this._click(e));
     this._ro = new ResizeObserver(() => this.resize());
     this._ro.observe(container);
-    const loop = () => { this._raf = requestAnimationFrame(loop); this.controls.update(); this.renderer.render(this.scene, this.camera); };
+    const loop = () => { this._raf = requestAnimationFrame(loop); this.controls.update(); this.renderer.render(this.scene, this.camera); this._placeMarkers(); };
     loop();
   }
 
@@ -148,6 +150,28 @@ export class IfcEngine {
     const hits = this.raycaster.intersectObjects(this.group.children.filter((m) => m.visible && m.userData.pickable !== false), false);
     const hit = hits.find((h) => !this.renderer.clippingPlanes.length || this.section.distanceToPoint(h.point) >= 0);
     this.onPick(hit ? hit.object.userData.expressID : null, e.ctrlKey || e.metaKey || e.shiftKey);
+  }
+
+  /** HTML markers anchored above objects: [{eid, node}]; positions are updated every frame. */
+  setMarkers(list) {
+    this.markers.forEach((m) => { m.node.style.display = "none"; });
+    this.markers = list.map(({ eid, node }) => {
+      const box = new THREE.Box3();
+      (this.meshes.get(eid) || []).forEach((m) => box.expandByObject(m));
+      return box.isEmpty() ? null : { eid, node, anchor: new THREE.Vector3((box.min.x + box.max.x) / 2, box.max.y, (box.min.z + box.max.z) / 2), bottom: box.min.clone() };
+    }).filter(Boolean);
+  }
+
+  _placeMarkers() {
+    if (!this.markers.length) return;
+    const w = this.container.clientWidth, h = this.container.clientHeight;
+    const clipped = this.renderer.clippingPlanes.length > 0;
+    for (const m of this.markers) {
+      const v = this._v.copy(m.anchor).project(this.camera);
+      const shown = v.z > -1 && v.z < 1 && (this.meshes.get(m.eid) || []).some((x) => x.visible) && (!clipped || this.section.distanceToPoint(m.bottom) >= 0);
+      m.node.style.display = shown ? "" : "none";
+      if (shown) m.node.style.transform = `translate(${((v.x + 1) / 2) * w}px, ${((1 - v.y) / 2) * h}px) translate(-50%, -100%)`;
+    }
   }
 
   setSection(enabled, ratio) {

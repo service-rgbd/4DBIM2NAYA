@@ -9,7 +9,8 @@ import ModelTree from "@/components/bim/ModelTree";
 import PropertiesPanel from "@/components/bim/PropertiesPanel";
 import UploadModelDialog from "@/components/bim/UploadModelDialog";
 import IssueCreateDialog from "@/components/issues/IssueCreateDialog";
-import { useElements, useModels, useProject } from "@/hooks/useProjectData";
+import IssueSheet from "@/components/issues/IssueSheet";
+import { useElements, useIssuePins, useModels, useProject } from "@/hooks/useProjectData";
 import { errMsg, post } from "@/lib/api";
 import { MODEL_STATUS, canWrite, fmtDT } from "@/lib/format";
 
@@ -39,7 +40,9 @@ export default function ModelsPage() {
   const [hidden, setHidden] = useState({ storeys: new Set(), types: new Set() });
   const [focus, setFocus] = useState(null);
   const [issueElement, setIssueElement] = useState(null);
+  const [openIssue, setOpenIssue] = useState(null);
   const model = models?.find((m) => m.id === modelId) || models?.find((m) => m.current_version_id);
+  const pins = useIssuePins(pid, model?.id);
   const vid = model?.current_version_id;
   const { data: elements } = useElements(vid);
   const isVisible = useCallback((e) => !hidden.storeys.has(e.storey) && !hidden.types.has(e.ifc_type), [hidden]);
@@ -72,7 +75,7 @@ export default function ModelsPage() {
       {vid && (
         <div className="mt-4 grid min-h-[520px] flex-1 grid-cols-1 overflow-hidden rounded-lg border border-slate-200 bg-white lg:grid-cols-[260px_1fr_300px]">
           <div className="h-64 border-b lg:h-auto lg:border-b-0 lg:border-r"><ModelTree elements={elements} selectedGids={selected} onSelect={(g, add) => { pick(g, add); setFocus({ gids: [g] }); }} hidden={hidden} setHidden={setHidden} /></div>
-          <IfcViewer className="h-[420px] lg:h-auto" versionId={vid} elements={elements} colorMap={colorMap} selectedGids={selected} onPick={pick} isVisible={isVisible} focusRequest={focus} />
+          <IfcViewer className="h-[420px] lg:h-auto" versionId={vid} elements={elements} colorMap={colorMap} selectedGids={selected} onPick={pick} isVisible={isVisible} focusRequest={focus} issuePins={pins} onOpenIssue={setOpenIssue} />
           <div className="overflow-y-auto border-t scroll-thin lg:border-l lg:border-t-0">
             <div className="border-b px-3 py-2 font-heading text-sm font-semibold">Propriétés {selected.size > 1 && <span className="text-xs font-normal text-slate-500">({selected.size} objets sélectionnés)</span>}</div>
             <PropertiesPanel versionId={vid} gid={one} onCreateIssue={canWrite(project?.my_role) ? setIssueElement : undefined} />
@@ -80,6 +83,7 @@ export default function ModelsPage() {
         </div>
       )}
       <IssueCreateDialog pid={pid} open={!!issueElement} onClose={() => setIssueElement(null)} element={issueElement} modelId={model?.id} />
+      <IssueSheet issueId={openIssue} pid={pid} onClose={() => setOpenIssue(null)} canEdit={canWrite(project?.my_role)} />
     </div>
   );
 }

@@ -7,8 +7,9 @@ import Timeline from "@/components/bim4d/Timeline";
 import SidePanel from "@/components/bim4d/SidePanel";
 import ReportDialog from "@/components/bim4d/ReportDialog";
 import IssueCreateDialog from "@/components/issues/IssueCreateDialog";
+import IssueSheet from "@/components/issues/IssueSheet";
 import { useTaskFilters } from "@/pages/PlanningPage";
-import { useElements, useLinks, useModels, usePlanning, useProject } from "@/hooks/useProjectData";
+import { useElements, useIssuePins, useLinks, useModels, usePlanning, useProject } from "@/hooks/useProjectData";
 import { errMsg } from "@/lib/api";
 import { addDays, canLink, canWrite } from "@/lib/format";
 import { PHASE_COLORS, computeElementPhases } from "@/lib/sim4d";
@@ -78,6 +79,8 @@ export default function Bim4DPage() {
   const [focus, setFocus] = useState(null);
   const [tab, setTab] = useState("activity");
   const [issueElement, setIssueElement] = useState(null);
+  const [openIssue, setOpenIssue] = useState(null);
+  const pins = useIssuePins(pid, model?.id);
 
   const visibleIds = useMemo(() => (active ? new Set(filtered.map((t) => t.id)) : null), [filtered, active]);
   const countsAt = useCallback((d) => buildColorMap(elements, computeElementPhases(tasks, byGid, d, mode, today, visibleIds), ghost).counts, [elements, tasks, byGid, mode, today, visibleIds, ghost]);
@@ -123,7 +126,7 @@ export default function Bim4DPage() {
         <span className="ml-auto text-[11px] text-slate-500" data-testid="bim4d-sync-state">{links ? `${links.length} liaisons persistées · ${byTask.size} activités liées` : "Chargement des liaisons…"}</span>
       </div>
       <div className="grid min-h-0 flex-[3] grid-cols-1 lg:grid-cols-[1fr_340px]">
-        <IfcViewer className="min-h-[340px]" versionId={vid} elements={elements} colorMap={colorMap} selectedGids={selected} onPick={pick} focusRequest={focus} />
+        <IfcViewer className="min-h-[340px]" versionId={vid} elements={elements} colorMap={colorMap} selectedGids={selected} onPick={pick} focusRequest={focus} issuePins={pins} onOpenIssue={setOpenIssue} />
         <div className="min-h-[300px] border-l border-slate-200">
           <SidePanel pid={pid} modelId={model?.id} versionId={vid} tasks={tasks} elements={elements} task={task} selected={selected} linksByGid={byGid} linksByTask={byTask}
             simDate={date} today={plan.today} canLink={canLink(project?.my_role) && !!vid && project?.status !== "archive"} onSelectGids={selectGids}
@@ -137,6 +140,7 @@ export default function Bim4DPage() {
           simDate={date} today={plan.today} showCritical rowHeight={28} compact calendar={plan.calendar} />
       </div>
       <IssueCreateDialog pid={pid} open={!!issueElement} onClose={() => setIssueElement(null)} element={issueElement} modelId={model?.id} />
+      <IssueSheet issueId={openIssue} pid={pid} onClose={() => setOpenIssue(null)} canEdit={canWrite(project?.my_role)} />
     </div>
   );
 }

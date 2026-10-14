@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState, ErrorState, Kpi, Loading, PageHeader } from "@/components/common";
 import IssueCreateDialog from "@/components/issues/IssueCreateDialog";
 import IssueSheet from "@/components/issues/IssueSheet";
+import ExportIssuesButton from "@/components/issues/ExportIssuesButton";
 import { useProject } from "@/hooks/useProjectData";
 import { errMsg, get } from "@/lib/api";
 import { ISSUE_CATEGORY, ISSUE_STATUS, canWrite, fmtD } from "@/lib/format";
@@ -16,16 +17,19 @@ const sel = "h-9 rounded-md border border-slate-300 bg-white px-2 text-sm";
 export default function IssuesPage() {
   const { pid } = useParams();
   const { data: project } = useProject(pid);
-  const [filters, setFilters] = useState({ status: "", priority: "" });
+  const [filters, setFilters] = useState({ status: "", priority: "", company: "" });
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState(null);
   const { data, isLoading, error, refetch } = useQuery({ queryKey: ["issues", pid, filters], queryFn: () => get(`/projects/${pid}/issues`, filters) });
   const editable = canWrite(project?.my_role);
+  const canExport = editable;
   return (
     <div className="mx-auto max-w-7xl p-4 md:p-8 fade-up">
       <PageHeader title="Réserves & incidents" subtitle="Fiches de terrain, liées ou non à un objet de la maquette, suivies jusqu'à la clôture avec preuve.">
         <select data-testid="issues-filter-status" className={sel} value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}><option value="">Tous statuts</option>{Object.entries(ISSUE_STATUS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select>
         <select data-testid="issues-filter-priority" className={sel} value={filters.priority} onChange={(e) => setFilters({ ...filters, priority: e.target.value })}><option value="">Toutes priorités</option>{Object.keys(PRIO).map((p) => <option key={p}>{p}</option>)}</select>
+        <select data-testid="issues-filter-company" className={sel} value={filters.company} onChange={(e) => setFilters({ ...filters, company: e.target.value })}><option value="">Toutes entreprises</option>{(data?.companies || []).map((c) => <option key={c} value={c}>{c}</option>)}</select>
+        {canExport && <ExportIssuesButton pid={pid} filters={filters} disabled={!data} />}
         {editable && <Button data-testid="issue-new-btn" className="bg-blue-700 hover:bg-blue-800" onClick={() => setCreating(true)}><Plus className="mr-2 h-4 w-4" />Nouvelle réserve</Button>}
       </PageHeader>
       {isLoading && <Loading />}

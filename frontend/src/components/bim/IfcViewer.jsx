@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Crosshair, Eye, Focus, Loader2, Maximize, Scissors, ScanSearch } from "lucide-react";
+import { Crosshair, Eye, Focus, Loader2, MapPin, Maximize, Scissors, ScanSearch } from "lucide-react";
 import { api, errMsg } from "@/lib/api";
 import { IfcEngine } from "@/lib/ifcEngine";
+import IssuePins, { PIN_COLORS } from "@/components/bim/IssuePins";
+
+const PinLegend = ({ count }) => (
+  <div className="absolute bottom-10 right-3 flex items-center gap-2 rounded bg-slate-800/85 px-2 py-1 text-[10px] text-slate-300" data-testid="issue-pins-legend">
+    <span>{count} objet(s) avec réserve non levée</span>
+    {Object.entries(PIN_COLORS).map(([k, c]) => <span key={k} className="flex items-center gap-1"><span className="h-2 w-2 rounded-full" style={{ background: c }} />{k}</span>)}
+  </div>
+);
 
 const Tool = ({ onClick, title, active, children, testid }) => (
   <button data-testid={testid} title={title} onClick={onClick} className={`grid h-8 w-8 place-items-center rounded-md border transition-colors ${active ? "border-blue-500 bg-blue-600 text-white" : "border-slate-700 bg-slate-800/90 text-slate-200 hover:bg-slate-700"}`}>{children}</button>
@@ -57,9 +65,10 @@ function useEngineSync(engine, ready, maps, { colorMap, selectedGids, isVisible,
 }
 
 /** Real IFC geometry viewer (web-ifc + Three.js). Business identity = IFC GlobalId; expressID only maps meshes. */
-export default function IfcViewer({ versionId, elements, colorMap, selectedGids, onPick, isVisible, focusRequest, className = "" }) {
+export default function IfcViewer({ versionId, elements, colorMap, selectedGids, onPick, isVisible, focusRequest, issuePins, onOpenIssue, className = "" }) {
   const box = useRef(null);
   const [section, setSection] = useState({ on: false, ratio: 0.6 });
+  const [showPins, setShowPins] = useState(true);
   const [isolated, setIsolated] = useState(false);
   const maps = useIdMaps(elements);
   const mapsRef = useRef(maps);
@@ -105,7 +114,10 @@ export default function IfcViewer({ versionId, elements, colorMap, selectedGids,
             <Tool testid="viewer-show-all-btn" title="Tout afficher" onClick={() => setIsolated(false)}><Eye className="h-4 w-4" /></Tool>
             <Tool testid="viewer-section-btn" title="Coupe horizontale" active={section.on} onClick={() => setSection((s) => ({ ...s, on: !s.on }))}><Scissors className="h-4 w-4" /></Tool>
             <Tool testid="viewer-fullscreen-btn" title="Plein écran" onClick={fullscreen}><Maximize className="h-4 w-4" /></Tool>
+            {issuePins && <Tool testid="viewer-pins-toggle-btn" title={showPins ? "Masquer les réserves" : "Afficher les réserves"} active={showPins} onClick={() => setShowPins((s) => !s)}><MapPin className="h-4 w-4" /></Tool>}
           </div>
+          {issuePins && showPins && <IssuePins engine={engine} ready={ready} pins={issuePins} g2e={maps.g2e} onOpen={onOpenIssue} />}
+          {issuePins && showPins && issuePins.length > 0 && <PinLegend count={issuePins.length} />}
           {section.on && (
             <div className="absolute bottom-3 left-3 flex items-center gap-2 rounded-md bg-slate-800/90 px-3 py-2 text-xs text-slate-200">
               Hauteur de coupe

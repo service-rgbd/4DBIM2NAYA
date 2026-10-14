@@ -55,7 +55,8 @@ async def list_issues(pid: str, status: str = "", priority: str = "", company: s
     open_items = [i for i in items if i["status"] not in ("resolu", "cloture")]
     stats = {"total": len(items), "open": len(open_items), "critical_open": sum(1 for i in open_items if i["priority"] == "critique"),
              "overdue": sum(1 for i in items if i["overdue"]), "closed": sum(1 for i in items if i["status"] == "cloture")}
-    return {"items": items, "stats": stats}
+    companies = sorted(c for c in await db.issues.distinct("company", {"project_id": pid, "deleted_at": None}) if c)
+    return {"items": items, "stats": stats, "companies": companies}
 
 
 @router.post("/projects/{pid}/issues", status_code=201)

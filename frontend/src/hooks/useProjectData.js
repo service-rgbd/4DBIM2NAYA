@@ -1,5 +1,12 @@
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { get } from "@/lib/api";
+import { buildIssuePins } from "@/components/bim/IssuePins";
+
+export function useIssuePins(pid, modelId) {
+  const { data } = useQuery({ queryKey: ["issues", pid, "pins"], queryFn: () => get(`/projects/${pid}/issues`), enabled: !!pid });
+  return useMemo(() => buildIssuePins(data?.items, modelId), [data, modelId]);
+}
 
 export const useProjects = () => useQuery({ queryKey: ["projects"], queryFn: () => get("/projects") });
 export const useProject = (pid) => useQuery({ queryKey: ["project", pid], queryFn: () => get(`/projects/${pid}`), enabled: !!pid });
