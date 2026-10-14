@@ -36,12 +36,14 @@ Données réelles persistées, permissions serveur, traçabilité, pas de faux t
 ## Implemented (2026-10-14)
 - Réserves & incidents : fiches (référence RES-0001…, catégorie, priorité, zone/étage, responsable, entreprise, échéance), liées en option à un objet IFC (GlobalId) depuis Maquettes BIM ou l'Espace 4D, photos constat/preuve (JPEG/PNG/WebP vérifiés, GridFS, accès authentifié), commentaires, flux ouvert → affecté → en cours → à vérifier → résolu → clôturé (affectation sans responsable refusée, vérification et clôture exigent une preuve), verrou optimiste, historique, KPIs ouvertes/critiques/en retard/clôturées, permissions serveur
 - Export PDF 4D (reportlab) : la simulation est rejouée à 4–12 dates, chaque page reprend la capture du viewer, les comptages par phase et les activités en cours ; la couverture reprend les indicateurs enregistrés et la date de génération ; action journalisée
+- Pastilles de réserves dans la maquette (Maquettes BIM + Espace 4D) : une pastille par objet ayant des réserves non levées (ouvert/affecté/en cours/à vérifier), compteur, couleur = priorité la plus haute, clic → fiche (ou liste si plusieurs), bouton afficher/masquer, légende ; positionnement HTML recalculé à chaque frame (masquée si objet caché/coupé)
+- Export PDF des réserves (GET /api/v1/projects/{pid}/reports/issues?status&priority&company) : synthèse par entreprise, fiche par réserve avec photos constat/preuve (miniatures PIL), note de levée et date de clôture ; « toutes entreprises » = regroupé par entreprise ; filtre entreprise ajouté sur la page Réserves ; action journalisée
 
 ## Prioritized backlog
-- P0 : invitations & gestion d'équipe/rôles par projet (UI), export PDF du planning/4D
-- P1 : documents & plans 2D versionnés, réserves liées aux objets BIM, rapports journaliers, coordination entreprises/coactivité
+- P0 : invitations & gestion d'équipe/rôles par projet (UI), documents & plans 2D versionnés
+- P1 : rapports journaliers, réunions, coordination entreprises/coactivité, type hints backend, découpage Gantt.jsx / parse_ifc
 - P1 : stockage S3/R2 via adaptateur, fédération multi-maquettes
 - P2 : réunions, coûts (Decimal), notifications temps réel, IFCZIP/IFC-XML, DWG
 
 ## Next tasks
-Réserves liées aux objets BIM ; export PDF/vidéo de la simulation 4D.
+Documents & plans 2D ; gestion des équipes et entreprises. Avertissements console préexistants : DialogTitle/Description manquants (IssueSheet, RuleDialog, TaskSheet, MoveConfirmDialog, UploadModelDialog, ProjectsPage) et <span> dans <option>.

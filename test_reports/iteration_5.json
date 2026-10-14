@@ -1,0 +1,32 @@
+{
+  "summary": "Validated the two new features on DEMO-DUPLEX: (A) PDF export of filtered issues list grouped by company — backend pytest 7/7 pass (companies key independent of filters, admin PDF with/without company filter, empty-result PDF, PDF embeds thumbnailed JPEG+PNG photos and 'Preuve de levée' line, priority filter, lecteur 403); (B) 3D issue pins on Maquettes BIM and Espace BIM 4D — HTML overlays appear correctly, data-priority = highest priority (critique red for the 2-issue object, haute for the single-issue object), counter shows nb of issues, multi-issue click opens issue-pin-list with items, single-issue click opens IssueSheet directly, viewer-pins-toggle-btn hides/shows the layer, legend renders, pins also render on the /4d route. Lecteur sees neither issues-export-pdf-btn nor issue-new-btn. Cache: IssueSheet invalidates ['issues', pid] which prefix-matches ['issues', pid, 'pins'] → pins auto-refresh on status changes (verified in code).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dialogs across the app (IssueCreateDialog, ReportDialog, ...)", "issues": ["Pre-existing Radix a11y warnings 'DialogContent requires a DialogTitle' and 'Missing Description or aria-describedby'. Reported in iteration_4, still present on multi-pin list open (no new occurrence from this feature)."]},
+      {"screen": "Timeline / Issues filters (select options)", "issues": ["Pre-existing React hydration warning '<span> cannot be a child of <option>' (iteration_4). Not introduced by this feature."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_issues_report.py",
+    "/app/test_reports/pytest/issues_report.xml",
+    "/app/test_reports/issues_all.pdf",
+    "/app/test_reports/issues_one.pdf",
+    "/app/test_reports/issues_none.pdf"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "services/issues_report.py: _photo_rows pads last row with empty strings ('') while cells use Paragraph/Image — platypus accepts empty strings but a Paragraph('') would be more idiomatic. Low priority (no visible issue in PDFs).",
+    "routers/reports.py:_thumbnails downloads and converts photos sequentially via asyncio.to_thread; for projects with hundreds of photos this becomes slow. Consider asyncio.gather over per-photo tasks. Not blocking for the current demo scope.",
+    "IssuePins.jsx: engine.setMarkers() receives nodes resolved via refs; if issue list changes while React re-renders, the next frame may briefly map a stale node to a new gid. In practice invalidation + render order makes this harmless. No action required."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (7/7 new tests + prior 39 unchanged)", "frontend": "100% on all requested flows"},
+  "test_credentials": "admin@bim4d.fr / Bim4D-Admin-2026 ; lecteur@bim4d.fr / Bim4D-Lecteur-2026",
+  "seed_data_creation": "Used the 3 issues pre-created by main agent (RES-0001 critique Maçonnerie Durand, RES-0002 basse Plâtrerie Martin, RES-0003 haute Plâtrerie Martin). No new seed data created.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "DEMO project id 009f00d0-0898-4581-8d69-3d58e8953b4d, model cac04e88-5011-4f96-b9c3-0b030e3a97fd. Issue pins: expect 2 pins for the 3 open issues (one GlobalId has 2 issues so pin shows '2' and critique color). PDF sample at /app/test_reports/issues_all.pdf (grouped) and /app/test_reports/issues_one.pdf (filtered). Backend regression file: /app/backend/tests/test_issues_report.py."
+}
