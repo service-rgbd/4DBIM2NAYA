@@ -137,3 +137,55 @@ class LinkIn(BaseModel):
     task_id: str
     model_id: str
     global_ids: List[str] = Field(min_length=1, max_length=20000)
+
+
+IssueStatus = Literal["ouvert", "affecte", "en_cours", "a_verifier", "resolu", "cloture"]
+Priority = Literal["basse", "normale", "haute", "critique"]
+
+
+class IssueIn(BaseModel):
+    title: str = Field(min_length=3, max_length=200)
+    description: str = Field(default="", max_length=4000)
+    category: Literal["reserve", "incident", "non_conformite", "observation"] = "reserve"
+    priority: Priority = "normale"
+    storey: str = Field(default="", max_length=120)
+    zone: str = Field(default="", max_length=120)
+    model_id: Optional[str] = None
+    global_id: Optional[str] = Field(default=None, max_length=64)
+    task_id: Optional[str] = None
+    responsible: str = Field(default="", max_length=120)
+    company: str = Field(default="", max_length=120)
+    due_date: Optional[date] = None
+
+
+class IssuePatch(BaseModel):
+    version: int
+    title: Optional[str] = Field(default=None, min_length=3, max_length=200)
+    description: Optional[str] = Field(default=None, max_length=4000)
+    priority: Optional[Priority] = None
+    responsible: Optional[str] = Field(default=None, max_length=120)
+    company: Optional[str] = Field(default=None, max_length=120)
+    due_date: Optional[date] = None
+
+
+class IssueStatusIn(BaseModel):
+    version: int
+    status: IssueStatus
+    note: str = Field(default="", max_length=2000)
+
+
+class CommentIn(BaseModel):
+    text: str = Field(min_length=1, max_length=4000)
+
+
+class Capture(BaseModel):
+    date: date
+    image: str = Field(min_length=100, max_length=3_000_000)
+    counts: dict = Field(default_factory=dict)
+
+
+class Report4DIn(BaseModel):
+    mode: Literal["prevu", "reel", "ecart"]
+    model_name: str = Field(default="", max_length=200)
+    captures: List[Capture] = Field(min_length=1, max_length=12)
+

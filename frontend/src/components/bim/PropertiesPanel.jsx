@@ -3,7 +3,7 @@ import { get } from "@/lib/api";
 import { fmtShort } from "@/lib/format";
 import { Loading } from "@/components/common";
 
-export default function PropertiesPanel({ versionId, gid, onTaskClick }) {
+export default function PropertiesPanel({ versionId, gid, onTaskClick, onCreateIssue }) {
   const { data: e, isLoading, error } = useQuery({ queryKey: ["element", versionId, gid], queryFn: () => get(`/model-versions/${versionId}/elements/${gid}`), enabled: !!gid && !!versionId });
   if (!gid) return <div className="p-4 text-xs text-slate-500">Sélectionnez un objet dans la maquette ou l'arborescence pour inspecter ses propriétés IFC.</div>;
   if (isLoading) return <Loading />;
@@ -20,6 +20,10 @@ export default function PropertiesPanel({ versionId, gid, onTaskClick }) {
         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Activités liées ({e.tasks.length})</div>
         {e.tasks.map((t) => <button key={t.id} data-testid={`prop-task-${t.code}`} onClick={() => onTaskClick?.(t.id)} className="block w-full truncate rounded border border-slate-200 px-2 py-1 text-left hover:bg-blue-50"><span className="font-mono">{t.code}</span> {t.name} <span className="text-slate-400">{fmtShort(t.early_start)}→{fmtShort(t.early_finish)}</span></button>)}
         {!e.tasks.length && <div className="text-slate-400">Aucune — objet non planifié.</div>}
+      </div>
+      <div data-testid="prop-issues">
+        <div className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">Réserves ({e.issues.length}){onCreateIssue && <button data-testid="prop-create-issue-btn" onClick={() => onCreateIssue(e)} className="rounded bg-amber-500 px-2 py-0.5 text-[10px] font-bold normal-case text-white hover:bg-amber-600">+ Créer une réserve</button>}</div>
+        {e.issues.map((i) => <div key={i.id} className="truncate rounded border border-amber-200 bg-amber-50 px-2 py-1"><span className="font-mono">{i.reference}</span> {i.title} · <b>{i.status}</b></div>)}
       </div>
       {Object.entries(groups).map(([pset, props]) => (
         <details key={pset} className="rounded border border-slate-200">

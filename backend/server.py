@@ -10,7 +10,7 @@ from fastapi import FastAPI, APIRouter, Request  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 from core.db import client, create_indexes  # noqa: E402
-from routers import auth, projects, tasks, bim  # noqa: E402
+from routers import auth, projects, tasks, bim, issues, reports  # noqa: E402
 from services.bim_worker import worker_loop  # noqa: E402
 from services.seed import seed  # noqa: E402
 
@@ -27,7 +27,7 @@ async def health_check():
     return {"status": "ok"}
 
 
-for r in (auth.router, projects.router, tasks.router, bim.router):
+for r in (auth.router, projects.router, tasks.router, bim.router, issues.router, reports.router):
     v1.include_router(r)
 api.include_router(v1)
 app.include_router(api)

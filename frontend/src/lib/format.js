@@ -25,6 +25,9 @@ export const MODEL_STATUS = {
 };
 
 export const DEP_TYPES = { FS: "Fin → Début", SS: "Début → Début", FF: "Fin → Fin", SF: "Début → Fin" };
+export const ISSUE_STATUS = { ouvert: "Ouvert", affecte: "Affecté", en_cours: "En cours", a_verifier: "À vérifier", resolu: "Résolu", cloture: "Clôturé" };
+export const ISSUE_NEXT = { ouvert: ["affecte", "en_cours"], affecte: ["en_cours", "ouvert"], en_cours: ["a_verifier"], a_verifier: ["resolu", "en_cours"], resolu: ["cloture", "en_cours"], cloture: ["ouvert"] };
+export const ISSUE_CATEGORY = { reserve: "Réserve", incident: "Incident", non_conformite: "Non-conformité", observation: "Observation" };
 export const ROLE_LABEL = {
   admin_plateforme: "Administrateur plateforme", chef_projet: "Chef de projet", bim_manager: "BIM manager",
   conducteur_travaux: "Conducteur de travaux", sous_traitant: "Sous-traitant", lecteur: "Lecteur",

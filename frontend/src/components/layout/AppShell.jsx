@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useNavigate, useParams, useLocation } from "react-router-dom";
-import { Bell, Box, CalendarDays, ChevronRight, Clock3, FolderKanban, GanttChart, History, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
+import { Bell, Box, CalendarDays, ChevronRight, ClipboardCheck, Clock3, FolderKanban, GanttChart, History, LayoutDashboard, LogOut, Menu, X } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { useProject, useProjects, useDashboard } from "@/hooks/useProjectData";
@@ -13,10 +13,11 @@ const NAV = [
   { to: "4d", label: "Espace BIM 4D", icon: Clock3, id: "bim4d", core: true },
   { to: "planning", label: "Planning Gantt", icon: GanttChart, id: "planning" },
   { to: "models", label: "Maquettes BIM", icon: Box, id: "models" },
+  { to: "issues", label: "Réserves & incidents", icon: ClipboardCheck, id: "issues" },
   { to: "calendar", label: "Calendrier", icon: CalendarDays, id: "calendar" },
   { to: "audit", label: "Historique & audit", icon: History, id: "audit" },
 ];
-const LATER = ["Documents & plans 2D", "Réserves & incidents", "Rapports journaliers", "Réunions", "Coûts", "Invitations & équipes"];
+const LATER = ["Documents & plans 2D", "Rapports journaliers", "Réunions", "Coûts", "Invitations & équipes"];
 
 const Sidebar = ({ pid, onNav }) => (
   <aside className="flex h-full w-64 flex-col bg-slate-900 text-slate-100">

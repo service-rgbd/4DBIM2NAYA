@@ -8,6 +8,7 @@ import IfcViewer from "@/components/bim/IfcViewer";
 import ModelTree from "@/components/bim/ModelTree";
 import PropertiesPanel from "@/components/bim/PropertiesPanel";
 import UploadModelDialog from "@/components/bim/UploadModelDialog";
+import IssueCreateDialog from "@/components/issues/IssueCreateDialog";
 import { useElements, useModels, useProject } from "@/hooks/useProjectData";
 import { errMsg, post } from "@/lib/api";
 import { MODEL_STATUS, canWrite, fmtDT } from "@/lib/format";
@@ -37,6 +38,7 @@ export default function ModelsPage() {
   const [selected, setSelected] = useState(new Set());
   const [hidden, setHidden] = useState({ storeys: new Set(), types: new Set() });
   const [focus, setFocus] = useState(null);
+  const [issueElement, setIssueElement] = useState(null);
   const model = models?.find((m) => m.id === modelId) || models?.find((m) => m.current_version_id);
   const vid = model?.current_version_id;
   const { data: elements } = useElements(vid);
@@ -73,10 +75,11 @@ export default function ModelsPage() {
           <IfcViewer className="h-[420px] lg:h-auto" versionId={vid} elements={elements} colorMap={colorMap} selectedGids={selected} onPick={pick} isVisible={isVisible} focusRequest={focus} />
           <div className="overflow-y-auto border-t scroll-thin lg:border-l lg:border-t-0">
             <div className="border-b px-3 py-2 font-heading text-sm font-semibold">Propriétés {selected.size > 1 && <span className="text-xs font-normal text-slate-500">({selected.size} objets sélectionnés)</span>}</div>
-            <PropertiesPanel versionId={vid} gid={one} />
+            <PropertiesPanel versionId={vid} gid={one} onCreateIssue={canWrite(project?.my_role) ? setIssueElement : undefined} />
           </div>
         </div>
       )}
+      <IssueCreateDialog pid={pid} open={!!issueElement} onClose={() => setIssueElement(null)} element={issueElement} modelId={model?.id} />
     </div>
   );
 }

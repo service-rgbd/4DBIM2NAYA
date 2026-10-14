@@ -5,10 +5,12 @@ import IfcViewer from "@/components/bim/IfcViewer";
 import Gantt from "@/components/gantt/Gantt";
 import Timeline from "@/components/bim4d/Timeline";
 import SidePanel from "@/components/bim4d/SidePanel";
+import ReportDialog from "@/components/bim4d/ReportDialog";
+import IssueCreateDialog from "@/components/issues/IssueCreateDialog";
 import { useTaskFilters } from "@/pages/PlanningPage";
 import { useElements, useLinks, useModels, usePlanning, useProject } from "@/hooks/useProjectData";
 import { errMsg } from "@/lib/api";
-import { addDays, canLink } from "@/lib/format";
+import { addDays, canLink, canWrite } from "@/lib/format";
 import { PHASE_COLORS, computeElementPhases } from "@/lib/sim4d";
 
 function useLinkMaps(links) {
@@ -75,6 +77,8 @@ export default function Bim4DPage() {
   const [selected, setSelected] = useState(new Set());
   const [focus, setFocus] = useState(null);
   const [tab, setTab] = useState("activity");
+  const [issueElement, setIssueElement] = useState(null);
+  const countsAt = useCallback((d) => buildColorMap(elements, computeElementPhases(tasks, byGid, d, mode, today, visibleIds), ghost).counts, [elements, tasks, byGid, mode, today, visibleIds, ghost]);
 
   const visibleIds = useMemo(() => (active ? new Set(filtered.map((t) => t.id)) : null), [filtered, active]);
   const phases = useMemo(() => (date ? computeElementPhases(tasks, byGid, date, mode, today, visibleIds) : new Map()), [tasks, byGid, date, mode, today, visibleIds]);
@@ -115,6 +119,7 @@ export default function Bim4DPage() {
         <select data-testid="bim4d-ghost-select" value={ghost} onChange={(e) => setGhost(e.target.value)} className="h-8 rounded-md border border-slate-300 px-2 text-xs">
           <option value="ghost">À réaliser : fantôme</option><option value="hide">À réaliser : masqué</option><option value="color">À réaliser : gris plein</option>
         </select>
+        <ReportDialog pid={pid} range={range} mode={mode} modelName={model?.name || ""} setSimDate={setSimDate} countsAt={countsAt} disabled={!vid} />
         <span className="ml-auto text-[11px] text-slate-500" data-testid="bim4d-sync-state">{links ? `${links.length} liaisons persistées · ${byTask.size} activités liées` : "Chargement des liaisons…"}</span>
       </div>
       <div className="grid min-h-0 flex-[3] grid-cols-1 lg:grid-cols-[1fr_340px]">
@@ -122,7 +127,7 @@ export default function Bim4DPage() {
         <div className="min-h-[300px] border-l border-slate-200">
           <SidePanel pid={pid} modelId={model?.id} versionId={vid} tasks={tasks} elements={elements} task={task} selected={selected} linksByGid={byGid} linksByTask={byTask}
             simDate={date} today={plan.today} canLink={canLink(project?.my_role) && !!vid && project?.status !== "archive"} onSelectGids={selectGids}
-            onTaskClick={(id) => { const t = tasks.find((x) => x.id === id); if (t) selectTask(t); }} tab={tab} setTab={setTab} />
+            onTaskClick={(id) => { const t = tasks.find((x) => x.id === id); if (t) selectTask(t); }} onCreateIssue={canWrite(project?.my_role) ? setIssueElement : undefined} tab={tab} setTab={setTab} />
         </div>
       </div>
       <Timeline start={range.start} end={range.end} date={date} setDate={setSimDate} playing={playing} setPlaying={setPlaying} step={step} setStep={setStep}
@@ -131,6 +136,7 @@ export default function Bim4DPage() {
         <Gantt tasks={filtered} deps={plan.dependencies} zoom="week" selectedId={taskId} highlightIds={highlightIds} onSelect={selectTask} canEdit={false}
           simDate={date} today={plan.today} showCritical rowHeight={28} compact calendar={plan.calendar} />
       </div>
+      <IssueCreateDialog pid={pid} open={!!issueElement} onClose={() => setIssueElement(null)} element={issueElement} modelId={model?.id} />
     </div>
   );
 }

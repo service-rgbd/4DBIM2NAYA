@@ -51,3 +51,7 @@ async def create_indexes():
     await db.link_rules.create_index([("project_id", 1)])
     await db.audit_logs.create_index([("project_id", 1), ("at", -1)])
     await db.audit_logs.create_index([("entity_id", 1)])
+    await db.issues.create_index("id", unique=True)
+    await db.issues.create_index([("project_id", 1), ("deleted_at", 1), ("status", 1)])
+    await db.issues.create_index([("project_id", 1), ("global_id", 1)])
+    await db.issues.create_index([("project_id", 1), ("reference", 1)], unique=True)

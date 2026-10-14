@@ -12,6 +12,7 @@ import ModelsPage from "@/pages/ModelsPage";
 import Bim4DPage from "@/pages/Bim4DPage";
 import CalendarPage from "@/pages/CalendarPage";
 import AuditPage from "@/pages/AuditPage";
+import IssuesPage from "@/pages/IssuesPage";
 
 const Protected = ({ children }) => {
   const { user } = useAuth();
@@ -34,6 +35,7 @@ function App() {
             <Route path="/projects/:pid/4d" element={<Bim4DPage />} />
             <Route path="/projects/:pid/calendar" element={<CalendarPage />} />
             <Route path="/projects/:pid/audit" element={<AuditPage />} />
+            <Route path="/projects/:pid/issues" element={<IssuesPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/projects" replace />} />
         </Routes>

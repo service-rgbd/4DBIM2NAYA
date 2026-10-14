@@ -110,6 +110,7 @@ async def element(vid: str, gid: str, user=Depends(get_current_user)):
     if not e:
         raise HTTPException(status_code=404, detail="Objet IFC introuvable")
     task_ids = [lk["task_id"] async for lk in db.links.find({"model_id": v["model_id"], "global_id": gid})]
+    e["issues"] = await db.issues.find({"project_id": v["project_id"], "global_id": gid, "deleted_at": None}, {"_id": 0, "id": 1, "reference": 1, "title": 1, "status": 1, "priority": 1}).to_list(100)
     e["tasks"] = await db.tasks.find({"id": {"$in": task_ids}, "deleted_at": None}, {"_id": 0, "id": 1, "code": 1, "name": 1, "early_start": 1, "early_finish": 1, "status": 1}).to_list(100)
     return e
 

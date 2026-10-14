@@ -107,7 +107,7 @@ function LinkActions({ pid, modelId, versionId, tasks, task, sel, inTask, onSele
   );
 }
 
-export default function SidePanel({ pid, modelId, versionId, tasks, elements, task, selected, linksByGid, linksByTask, simDate, today, canLink, onSelectGids, onTaskClick, tab, setTab }) {
+export default function SidePanel({ pid, modelId, versionId, tasks, elements, task, selected, linksByGid, linksByTask, simDate, today, canLink, onSelectGids, onTaskClick, onCreateIssue, tab, setTab }) {
   const sel = useMemo(() => [...selected], [selected]);
   const inTask = useMemo(() => (task ? sel.filter((g) => (linksByGid.get(g) || []).includes(task.id)) : []), [task, sel, linksByGid]);
   return (
@@ -122,7 +122,7 @@ export default function SidePanel({ pid, modelId, versionId, tasks, elements, ta
         </TabsList>
         <div className="min-h-0 flex-1 overflow-y-auto scroll-thin">
           <TabsContent value="activity" className="mt-0"><TaskInfo task={task} simDate={simDate} today={today} linkedCount={task ? (linksByTask.get(task.id) || []).length : 0} onSelectObjects={() => onSelectGids(linksByTask.get(task.id) || [])} /></TabsContent>
-          <TabsContent value="object" className="mt-0">{sel.length > 1 ? <div className="p-3 text-xs text-slate-600">{sel.length} objets sélectionnés. Sélectionnez un seul objet pour ses propriétés.</div> : <PropertiesPanel versionId={versionId} gid={sel[0]} onTaskClick={onTaskClick} />}</TabsContent>
+          <TabsContent value="object" className="mt-0">{sel.length > 1 ? <div className="p-3 text-xs text-slate-600">{sel.length} objets sélectionnés. Sélectionnez un seul objet pour ses propriétés.</div> : <PropertiesPanel versionId={versionId} gid={sel[0]} onTaskClick={onTaskClick} onCreateIssue={onCreateIssue} />}</TabsContent>
           <TabsContent value="rules" className="mt-0"><Rules pid={pid} tasks={tasks} /></TabsContent>
           <TabsContent value="unlinked" className="mt-0"><Unlinked elements={elements} linksByGid={linksByGid} onSelect={onSelectGids} /></TabsContent>
         </div>
