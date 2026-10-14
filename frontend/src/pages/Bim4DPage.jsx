@@ -78,9 +78,9 @@ export default function Bim4DPage() {
   const [focus, setFocus] = useState(null);
   const [tab, setTab] = useState("activity");
   const [issueElement, setIssueElement] = useState(null);
-  const countsAt = useCallback((d) => buildColorMap(elements, computeElementPhases(tasks, byGid, d, mode, today, visibleIds), ghost).counts, [elements, tasks, byGid, mode, today, visibleIds, ghost]);
 
   const visibleIds = useMemo(() => (active ? new Set(filtered.map((t) => t.id)) : null), [filtered, active]);
+  const countsAt = useCallback((d) => buildColorMap(elements, computeElementPhases(tasks, byGid, d, mode, today, visibleIds), ghost).counts, [elements, tasks, byGid, mode, today, visibleIds, ghost]);
   const phases = useMemo(() => (date ? computeElementPhases(tasks, byGid, date, mode, today, visibleIds) : new Map()), [tasks, byGid, date, mode, today, visibleIds]);
   const { colorMap, counts } = useMemo(() => buildColorMap(elements, phases, ghost), [elements, phases, ghost]);
   const highlightIds = useMemo(() => new Set([...selected].flatMap((gid) => byGid.get(gid) || [])), [selected, byGid]);

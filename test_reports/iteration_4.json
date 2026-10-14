@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-focused testing of new Réserves BIM & Export 4D PDF features on DEMO-DUPLEX. All flows verified: (1) IssuesPage KPIs + table + create dialog, (2) full workflow transitions ouvert→affecte→en_cours→(422 bare)→a_verifier(+note+photo)→resolu→cloture with photo upload (preuve) displayed as thumbnail, comment added, history grows, (3) BIM-linked issue creation from Models page (prop-create-issue-btn → banner shows IFCWALLSTANDARDCASE · Basic Wall:Interior · Level 1 → RES-0003 created and shown under Réserves(2) in PropertiesPanel), (4) lecteur has no issue-new-btn and no prop-create-issue-btn, API POST /issues returns 403, (5) 4D PDF report generated via report-open-btn → 4 captures → PDF 131,901 bytes / 5 pages (cover + 4) saved to /app/test_reports/report4d.pdf, progress indicator visible with 'Capture 2/4 — 16 oct. 2026'. Found and fixed one CRITICAL runtime bug on Bim4DPage.jsx (TDZ: countsAt declared before visibleIds).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Bim4DPage", "issue": "Runtime error 'Cannot access visibleIds before initialization' blocked the entire 4D page (viewer-stats never rendered, Rapport PDF button inaccessible). Root cause: const countsAt = useCallback(...) on line 81 referenced visibleIds which was declared on line 83 (TDZ). FIXED by moving visibleIds useMemo above countsAt useCallback.", "selector": "entire /projects/{pid}/4d page", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "IssueCreateDialog & other shadcn dialogs", "issues": ["Radix warnings: 'DialogContent requires a DialogTitle for accessibility' and 'Missing Description or aria-describedby'. Add VisuallyHidden DialogDescription or aria-describedby to IssueCreateDialog, ReportDialog etc."]},
+      {"screen": "Multiple pages with <select>", "issues": ["Pre-existing React hydration warning '<span> cannot be a child of <option>' persists."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/report4d.pdf", "/app/backend/tests/test_api_e2e.py"],
+  "action_items": [
+    "(DONE by testing agent) Fixed TDZ in /app/frontend/src/pages/Bim4DPage.jsx by reordering visibleIds before countsAt — please review the hoisting is semantically equivalent (it is: both are stable memos driven by same inputs).",
+    "(Low) Add DialogDescription (or aria-describedby) to IssueCreateDialog, ReportDialog to silence Radix a11y warnings.",
+    "(Low) In Models page, when creating an issue from prop-create-issue-btn the IssueSheet does not auto-open (unlike IssuesPage). Consider wiring onCreated → setOpenId or a toast with a 'Voir la réserve' link for consistency."
+  ],
+  "critical_code_review_comments": [
+    "Bim4DPage.jsx was broken on this iteration due to variable-before-declaration — this file is large (143 lines) and the hooks ordering must be strict. Consider adding ESLint 'no-use-before-define' and 'react-hooks/exhaustive-deps' CI gates.",
+    "ReportDialog uses canvas.toDataURL at 0.72 quality for JPEG captures — fine for A4, but the WebGL context MUST have preserveDrawingBuffer=true at IFCViewer creation (confirmed in viewer code). If a future refactor loses that flag, PDFs will contain black images.",
+    "IssueSheet uses blob URL `createObjectURL` but revokes it in the useEffect cleanup only if `u` was captured; for photos replaced within the same component instance this is OK, but if many photos are added quickly the first blob URL is replaced in state without immediate revocation — potential small memory leak, acceptable for v1."
+  ],
+  "updated_files": ["/app/frontend/src/pages/Bim4DPage.jsx"],
+  "success_rate": {"backend": "100% (prior pytest 39/39, not re-run)", "frontend": "100% after TDZ fix (all requested flows green)"},
+  "test_credentials": "admin@bim4d.fr / Bim4D-Admin-2026 ; lecteur@bim4d.fr / Bim4D-Lecteur-2026",
+  "seed_data_creation": "Created on DEMO-DUPLEX: RES-0002 'TEST_Fissure plancher R+1' (full lifecycle to Clôturé, 1 photo preuve, 1 comment), RES-0003 'TEST_Objet BIM reserve' linked to IFCWALLSTANDARDCASE Basic Wall:Interior Furring (152mm Stud):190774 (Level 1), status Affecté. RES-0001 from previous iteration still present (Clôturé).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "DEMO project id: 009f00d0-0898-4581-8d69-3d58e8953b4d. PDF sample saved at /app/test_reports/report4d.pdf (5 pages, 131KB, mode Prévu, 4 captures). Backend issues API transitions and 403 for lecteur verified end-to-end from the UI (no need to re-run those backend tests). Prop-create-issue-btn only renders when an element is selected on Models or Bim4D page — expand storey then type then click an element."
+}

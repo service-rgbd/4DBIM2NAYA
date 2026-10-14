@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { FileDown, Loader2 } from "lucide-react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/common";
 import { api, errMsg } from "@/lib/api";
@@ -46,7 +46,7 @@ export default function ReportDialog({ pid, range, mode, modelName, setSimDate, 
     <Dialog open={open} onOpenChange={(o) => !step && setOpen(o)}>
       <DialogTrigger asChild><Button data-testid="report-open-btn" size="sm" variant="outline" disabled={disabled}><FileDown className="mr-1.5 h-3.5 w-3.5" />Rapport PDF</Button></DialogTrigger>
       <DialogContent data-testid="report-dialog">
-        <DialogHeader><DialogTitle className="font-heading">Rapport PDF de la simulation 4D</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="font-heading">Rapport PDF de la simulation 4D</DialogTitle><DialogDescription>Captures datées de la maquette et état d'avancement.</DialogDescription></DialogHeader>
         <p className="text-sm text-slate-600">La simulation est rejouée en mode <b>{mode === "prevu" ? "Prévu" : mode === "reel" ? "Réel" : "Écart"}</b> à {n} dates réparties entre le {fmtD(range.start)} et le {fmtD(range.end)}. Chaque page contient la capture de la maquette, les comptages par phase et les activités en cours ; la couverture reprend les indicateurs enregistrés.</p>
         <Field label="Nombre de captures"><select data-testid="report-count-select" className="h-9 w-full rounded-md border px-2 text-sm" value={n} disabled={!!step} onChange={(e) => setN(Number(e.target.value))}>{[4, 6, 8, 12].map((v) => <option key={v} value={v}>{v}</option>)}</select></Field>
         {step && <div className="flex items-center gap-2 text-sm text-blue-700" data-testid="report-progress"><Loader2 className="h-4 w-4 animate-spin" />{step}</div>}

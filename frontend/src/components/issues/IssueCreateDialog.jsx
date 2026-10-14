@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +34,7 @@ export default function IssueCreateDialog({ pid, open, onClose, element, modelId
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg" data-testid="issue-create-dialog">
-        <DialogHeader><DialogTitle className="font-heading">Nouvelle réserve</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle className="font-heading">Nouvelle réserve</DialogTitle><DialogDescription>Fiche de terrain suivie jusqu'à la clôture avec preuve.</DialogDescription></DialogHeader>
         {element && <div className="rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900" data-testid="issue-create-element">Objet BIM : {element.ifc_type} · {element.name} · {element.storey}</div>}
         <form onSubmit={submit} className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><Field label="Titre *"><Input data-testid="issue-title-input" required minLength={3} value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field></div>

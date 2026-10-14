@@ -33,6 +33,10 @@ Données réelles persistées, permissions serveur, traçabilité, pas de faux t
 - 39/39 tests backend OK après refactor
 - 2e passe : kpis/s_curve/dashboard extraits (dashboard_data), topo_order/compute_schedule découpés, décodage JWT et CPM sans variable ambiguë, contexte auth mémoïsé, Gantt (DependencyLayer, BaselineLayer), SidePanel (LinkActions), TaskSheet (SheetActions, TaskTabs), Bim4D (buildColorMap), correction réelle : tableaux `tasks`/`elements` recréés à chaque rendu
 
+## Implemented (2026-10-14)
+- Réserves & incidents : fiches (référence RES-0001…, catégorie, priorité, zone/étage, responsable, entreprise, échéance), liées en option à un objet IFC (GlobalId) depuis Maquettes BIM ou l'Espace 4D, photos constat/preuve (JPEG/PNG/WebP vérifiés, GridFS, accès authentifié), commentaires, flux ouvert → affecté → en cours → à vérifier → résolu → clôturé (affectation sans responsable refusée, vérification et clôture exigent une preuve), verrou optimiste, historique, KPIs ouvertes/critiques/en retard/clôturées, permissions serveur
+- Export PDF 4D (reportlab) : la simulation est rejouée à 4–12 dates, chaque page reprend la capture du viewer, les comptages par phase et les activités en cours ; la couverture reprend les indicateurs enregistrés et la date de génération ; action journalisée
+
 ## Prioritized backlog
 - P0 : invitations & gestion d'équipe/rôles par projet (UI), export PDF du planning/4D
 - P1 : documents & plans 2D versionnés, réserves liées aux objets BIM, rapports journaliers, coordination entreprises/coactivité

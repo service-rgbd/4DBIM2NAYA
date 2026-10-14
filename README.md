@@ -34,4 +34,5 @@ chef_projet : tout · bim_manager : lecture, création, modification, liaison, p
 Projet `DEMO-DUPLEX` marqué « DÉMO » : planning fictif + maquette publique « Duplex Apartment » (IFC2x3, buildingSMART/NIBS, via github.com/youshengCode/IfcSampleFiles).
 
 ## Non encore développé
-Documents/plans 2D, réserves, rapports journaliers, réunions, coûts, invitations et gestion d'équipe, notifications temps réel, exports PDF, IFC-XML/IFCZIP, DWG/DXF, géométrie multi-modèles fédérée, antivirus.
+Documents/plans 2D, rapports journaliers, réunions, coûts, invitations et gestion d'équipe, notifications temps réel, IFC-XML/IFCZIP, DWG/DXF, géométrie multi-modèles fédérée, antivirus.
+Réserves (routers/issues.py) et rapport PDF 4D (services/report4d.py) sont disponibles depuis le 2026-10-14.
